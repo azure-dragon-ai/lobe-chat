@@ -1,0 +1,37 @@
+请选择部署模式：
+(0) 域名模式（访问时无需指明端口），需要使用反向代理服务 LobeChat, MinIO, Casdoor ，并分别分配一个域名；
+(1) 端口模式（访问时需要指明端口，如使用IP访问，或域名+端口访问），需要放开指定端口；
+(2) 本地模式（仅供本地测试使用）
+如果你对这些内容疑惑，可以先选择使用本地模式进行部署，稍后根据文档指引再进行修改。
+https://lobehub.com/docs/self-hosting/server-database/docker-compose
+(0,1,2) [2]: 
+✔️ 已更新部署模式配置
+是否要重新生成安全密钥？
+(y/n) [y]: 
+重新生成安全密钥...
+是否初始化数据库？
+(y/n) [y]: 
+docker 没有找到，请先安装。
+无法初始化数据库，为了避免你的数据重复初始化，请在首次成功启动时运行以下指令清空 Casdoor 初始配置文件： echo '{}' > init_data.json
+安全密钥生成结果如下：
+LobeChat: 
+  - URL: http://localhost:3210 
+  - Username: user 
+Casdoor: 
+  - URL: http://localhost:8000 
+  - Username: admin 
+
+Minio: 
+  - URL: http://localhost:9000 
+  - Username: admin
+
+
+您已经完成了所有配置。请运行以下命令启动LobeChat：
+
+/dev/fd/11: line 382: declare: -A: invalid option
+declare: usage: declare [-afFirtx] [-p] [name[=value] ...]
+                                           docker compose up -d
+
+请确保服务器以下端口未被占用且能被访问：3210, 9000, 9001, 8000
+
+完整的环境变量在'.env'中可以在文档中找到：https://lobehub.com/zh/docs/self-hosting/environment-variables
