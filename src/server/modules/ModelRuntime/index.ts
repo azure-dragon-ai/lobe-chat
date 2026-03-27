@@ -1,5 +1,5 @@
 import { type GoogleGenAIOptions } from '@google/genai';
-import { ModelRuntime } from '@lobechat/model-runtime';
+import { ModelRuntime, type ModelRuntimeHooks } from '@lobechat/model-runtime';
 import { LobeVertexAI } from '@lobechat/model-runtime/vertexai';
 import {
   type AWSBedrockKeyVault,
@@ -7,12 +7,14 @@ import {
   type ClientSecretPayload,
   type CloudflareKeyVault,
   type ComfyUIKeyVault,
+  type GithubCopilotKeyVault,
   type OpenAICompatibleKeyVault,
   type VertexAIKeyVault,
 } from '@lobechat/types';
 import { safeParseJSON } from '@lobechat/utils';
 import { ModelProvider } from 'model-bank';
 
+import { getBusinessModelRuntimeHooks } from '@/business/server/model-runtime';
 import { AiProviderModel } from '@/database/models/aiProvider';
 import { type LobeChatDatabase } from '@/database/type';
 import { getLLMConfig } from '@/envs/llm';
@@ -30,6 +32,7 @@ type ProviderKeyVaults = OpenAICompatibleKeyVault &
   AWSBedrockKeyVault &
   CloudflareKeyVault &
   ComfyUIKeyVault &
+  GithubCopilotKeyVault &
   VertexAIKeyVault;
 
 /**
@@ -128,6 +131,19 @@ export const buildPayloadFromKeyVaults = (
       };
     }
 
+    case ModelProvider.GithubCopilot: {
+      // Support both traditional PAT (apiKey) and OAuth tokens
+      return {
+        apiKey: keyVaults.apiKey,
+        bearerToken: keyVaults.bearerToken,
+        bearerTokenExpiresAt: keyVaults.bearerTokenExpiresAt
+          ? Number(keyVaults.bearerTokenExpiresAt)
+          : undefined,
+        oauthAccessToken: keyVaults.oauthAccessToken,
+        runtimeProvider,
+      };
+    }
+
     default: {
       return {
         apiKey: keyVaults.apiKey,
@@ -218,6 +234,16 @@ const getParamsFromPayload = (provider: string, payload: ClientSecretPayload) =>
           : CLOUDFLARE_BASE_URL_OR_ACCOUNT_ID;
 
       return { apiKey, baseURLOrAccountID };
+    }
+
+    case ModelProvider.GithubCopilot: {
+      // Support both traditional PAT (apiKey) and OAuth tokens
+      return {
+        apiKey: payload.apiKey,
+        bearerToken: payload.bearerToken,
+        bearerTokenExpiresAt: payload.bearerTokenExpiresAt,
+        oauthAccessToken: payload.oauthAccessToken,
+      };
     }
 
     case ModelProvider.ComfyUI: {
@@ -332,6 +358,7 @@ export const initModelRuntimeWithUserPayload = (
   provider: string,
   payload: ClientSecretPayload,
   params: any = {},
+  hooks?: ModelRuntimeHooks,
 ) => {
   const runtimeProvider = payload.runtimeProvider ?? provider;
 
@@ -339,13 +366,17 @@ export const initModelRuntimeWithUserPayload = (
     const vertexOptions = buildVertexOptions(payload, params);
     const runtime = LobeVertexAI.initFromVertexAI(vertexOptions);
 
-    return new ModelRuntime(runtime);
+    return new ModelRuntime(runtime, hooks);
   }
 
-  return ModelRuntime.initializeWithProvider(runtimeProvider, {
-    ...getParamsFromPayload(runtimeProvider, payload),
-    ...params,
-  });
+  return ModelRuntime.initializeWithProvider(
+    runtimeProvider,
+    {
+      ...getParamsFromPayload(runtimeProvider, payload),
+      ...params,
+    },
+    hooks,
+  );
 };
 
 /**
@@ -390,6 +421,9 @@ export const initModelRuntimeFromDB = async (
   const keyVaults = (providerConfig?.keyVaults || {}) as ProviderKeyVaults;
   const payload = buildPayloadFromKeyVaults(keyVaults, runtimeProvider);
 
-  // 4. Initialize ModelRuntime with the payload
-  return initModelRuntimeWithUserPayload(provider, payload);
+  // 4. Get business hooks (billing in cloud, undefined in OSS)
+  const hooks = getBusinessModelRuntimeHooks(userId, provider);
+
+  // 5. Initialize ModelRuntime with the payload and hooks
+  return initModelRuntimeWithUserPayload(provider, payload, { userId }, hooks);
 };

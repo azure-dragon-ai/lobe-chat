@@ -1,6 +1,4 @@
-import { Skeleton } from '@lobehub/ui';
-import dynamic from 'next/dynamic';
-import { Suspense, memo } from 'react';
+import { memo } from 'react';
 
 import { useToolStore } from '@/store/tool';
 import { pluginSelectors } from '@/store/tool/selectors';
@@ -8,8 +6,6 @@ import { pluginSelectors } from '@/store/tool/selectors';
 import Loading from '../Loading';
 import { useParseContent } from '../useParseContent';
 import IFrameRender from './IFrameRender';
-
-const SystemJsRender = dynamic(() => import('./SystemJsRender'), { ssr: false });
 
 export interface PluginDefaultTypeProps {
   content: string;
@@ -31,13 +27,6 @@ const PluginDefaultType = memo<PluginDefaultTypeProps>(({ content, name, loading
   const ui = manifest.ui;
 
   if (!ui.url) return;
-
-  if (ui.mode === 'module')
-    return (
-      <Suspense fallback={<Skeleton active style={{ width: 400 }} />}>
-        <SystemJsRender content={data} name={name || 'unknown'} url={ui.url} />
-      </Suspense>
-    );
 
   return (
     <IFrameRender

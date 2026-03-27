@@ -1,48 +1,101 @@
 'use client';
 
 import { type IEditor } from '@lobehub/editor';
-import { memo, useEffect, useState } from 'react';
+import { memo, useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import type { EditorCanvasProps } from './EditorCanvas';
+import { EMPTY_EDITOR_STATE } from '@/libs/editor/constants';
+
+import { type EditorCanvasProps } from './EditorCanvas';
 import InternalEditor from './InternalEditor';
 
 export interface EditorDataModeProps extends EditorCanvasProps {
   editor: IEditor | undefined;
   editorData: NonNullable<EditorCanvasProps['editorData']>;
+  entityId?: string;
 }
+
+const loadEditorContent = (
+  editorInstance: IEditor,
+  editorData: EditorDataModeProps['editorData'],
+): boolean => {
+  const hasValidEditorData =
+    editorData.editorData &&
+    typeof editorData.editorData === 'object' &&
+    Object.keys(editorData.editorData as object).length > 0;
+
+  try {
+    if (hasValidEditorData) {
+      editorInstance.setDocument('json', JSON.stringify(editorData.editorData));
+      return true;
+    } else if (editorData.content?.trim()) {
+      editorInstance.setDocument('markdown', editorData.content, { keepId: true });
+      return true;
+    } else {
+      editorInstance.setDocument('json', JSON.stringify(EMPTY_EDITOR_STATE));
+      return true;
+    }
+  } catch (err) {
+    console.error('[loadEditorContent] Error loading content:', err);
+    return false;
+  }
+
+  return false;
+};
 
 /**
  * EditorCanvas with editorData mode - uses provided data directly
  */
 const EditorDataMode = memo<EditorDataModeProps>(
-  ({ editor, editorData, onContentChange, style, ...editorProps }) => {
+  ({ editor, editorData, entityId, onContentChange, onInit, style, ...editorProps }) => {
     const { t } = useTranslation('file');
-    const [isInitialized, setIsInitialized] = useState(false);
+    const isEditorReadyRef = useRef(false);
+    // Track the current entityId to detect entity changes
+    const currentEntityIdRef = useRef<string | undefined>(undefined);
 
-    // Load content into editor on mount
-    useEffect(() => {
-      if (!editor || isInitialized) return;
+    // Check if we're editing a different entity
+    // When entityId is undefined, always consider it as "changed" (backward compatibility)
+    // When entityId is provided, check if it actually changed
+    const isEntityChanged = entityId === undefined || currentEntityIdRef.current !== entityId;
 
-      const hasValidEditorData =
-        editorData.editorData &&
-        typeof editorData.editorData === 'object' &&
-        Object.keys(editorData.editorData as object).length > 0;
+    const handleInit = useCallback(
+      (editorInstance: IEditor) => {
+        isEditorReadyRef.current = true;
 
-      try {
-        if (hasValidEditorData) {
-          editor.setDocument('json', JSON.stringify(editorData.editorData));
-        } else if (editorData.content?.trim()) {
-          editor.setDocument('markdown', editorData.content, { keepId: true });
-        } else {
-          console.error('[EditorCanvas] load content error:', editorData);
+        // Always load content on init
+        try {
+          if (isEntityChanged && loadEditorContent(editorInstance, editorData)) {
+            currentEntityIdRef.current = entityId;
+          }
+        } catch (err) {
+          console.error('[EditorCanvas] Failed to load content:', err);
         }
 
-        setIsInitialized(true);
+        onInit?.(editorInstance);
+      },
+      [editorData, entityId, onInit],
+    );
+
+    // Load content when entityId changes (switching to a different entity)
+    // Ignore editorData changes when entityId hasn't changed to prevent focus loss during auto-save
+    useEffect(() => {
+      if (!editor || !isEditorReadyRef.current) return;
+
+      // Only reload if entityId changed
+      if (!isEntityChanged) {
+        // Same entity - don't reload, user is still editing
+        return;
+      }
+
+      // Different entity - load new content
+      try {
+        if (loadEditorContent(editor, editorData)) {
+          currentEntityIdRef.current = entityId;
+        }
       } catch (err) {
         console.error('[EditorCanvas] Failed to load content:', err);
       }
-    }, [editorData, editor, isInitialized]);
+    }, [editor, entityId, editorData, isEntityChanged]);
 
     if (!editor) return null;
 
@@ -50,8 +103,9 @@ const EditorDataMode = memo<EditorDataModeProps>(
       <div style={{ position: 'relative', ...style }}>
         <InternalEditor
           editor={editor}
-          onContentChange={onContentChange}
           placeholder={editorProps.placeholder || t('pageEditor.editorPlaceholder')}
+          onContentChange={onContentChange}
+          onInit={handleInit}
           {...editorProps}
         />
       </div>

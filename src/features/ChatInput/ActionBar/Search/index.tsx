@@ -31,16 +31,8 @@ const Search = memo(() => {
     <Action
       color={isAgentEnableSearch ? cssVar.colorInfo : undefined}
       icon={isAgentEnableSearch ? Globe : GlobeOffIcon}
-      onClick={
-        isMobile
-          ? undefined
-          : async (e) => {
-              e?.preventDefault?.();
-              e?.stopPropagation?.();
-              const next = mode === 'off' ? 'auto' : 'off';
-              await updateAgentChatConfig({ searchMode: next });
-            }
-      }
+      showTooltip={false}
+      title={t('search.title')}
       popover={{
         content: <Controls />,
         maxWidth: 320,
@@ -51,10 +43,18 @@ const Search = memo(() => {
             padding: 4,
           },
         },
-        trigger: isMobile ? ['click'] : ['hover'],
+        trigger: isMobile ? 'click' : 'hover',
       }}
-      showTooltip={false}
-      title={t('search.title')}
+      onClick={
+        isMobile
+          ? undefined
+          : async (e) => {
+              e?.preventDefault?.();
+              e?.stopPropagation?.();
+              const next = mode === 'off' ? 'auto' : 'off';
+              await updateAgentChatConfig({ searchMode: next });
+            }
+      }
     />
   );
 });

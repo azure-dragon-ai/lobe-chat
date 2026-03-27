@@ -1,7 +1,7 @@
-import type {
-  ElectronAppState,
-  WindowResizableParams,
-  WindowSizeParams,
+import {
+  type ElectronAppState,
+  type WindowMinimumSizeParams,
+  type WindowSizeParams,
 } from '@lobechat/electron-client-ipc';
 
 import { ensureElectronIpc } from '@/utils/electron/ipc';
@@ -32,20 +32,28 @@ class ElectronSystemService {
     return this.ipc.windows.maximizeWindow();
   }
 
-  async minimizeWindow(): Promise<void> {
-    return this.ipc.windows.minimizeWindow();
+  async isWindowMaximized(): Promise<boolean> {
+    return this.ipc.windows.isWindowMaximized();
   }
 
-  async setWindowResizable(params: WindowResizableParams): Promise<void> {
-    return this.ipc.windows.setWindowResizable(params);
+  async minimizeWindow(): Promise<void> {
+    return this.ipc.windows.minimizeWindow();
   }
 
   async setWindowSize(params: WindowSizeParams): Promise<void> {
     return this.ipc.windows.setWindowSize(params);
   }
 
+  async setWindowMinimumSize(params: WindowMinimumSizeParams): Promise<void> {
+    return this.ipc.windows.setWindowMinimumSize(params);
+  }
+
   async openExternalLink(url: string): Promise<void> {
     return this.ipc.system.openExternalLink(url);
+  }
+
+  async hasLegacyLocalDb(): Promise<boolean> {
+    return this.ipc.system.hasLegacyLocalDb();
   }
 
   showContextMenu = async (type: string, data?: any) => {

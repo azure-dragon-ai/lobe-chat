@@ -1,4 +1,3 @@
-/* eslint-disable sort-keys-fix/sort-keys-fix  */
 import { DEFAULT_PREFERENCE } from '@lobechat/const';
 import type { CustomPluginParams, UserOnboarding } from '@lobechat/types';
 import type { LobeChatPluginManifest } from '@lobehub/chat-plugin-sdk';
@@ -82,6 +81,7 @@ export const userSettings = pgTable('user_settings', {
   memory: jsonb('memory'),
   tool: jsonb('tool'),
   image: jsonb('image'),
+  notification: jsonb('notification'),
 });
 export type UserSettingsItem = typeof userSettings.$inferSelect;
 

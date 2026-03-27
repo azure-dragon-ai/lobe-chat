@@ -1,23 +1,33 @@
-import { Popover, TooltipGroup } from '@lobehub/ui';
+import {
+  DropdownMenuPopup,
+  DropdownMenuPortal,
+  DropdownMenuPositioner,
+  DropdownMenuRoot,
+  DropdownMenuTrigger,
+  stopPropagation,
+  TooltipGroup,
+} from '@lobehub/ui';
 import { memo, useCallback, useState } from 'react';
 
 import { PanelContent } from './components/PanelContent';
 import { styles } from './styles';
-import type { ModelSwitchPanelProps } from './types';
+import { type ModelSwitchPanelProps } from './types';
 
 const ModelSwitchPanel = memo<ModelSwitchPanelProps>(
   ({
+    ModelItemComponent,
     children,
+    enabledList,
     model: modelProp,
     onModelChange,
     onOpenChange,
     open,
     placement = 'topLeft',
+    pricingMode,
     provider: providerProp,
+    openOnHover = true,
   }) => {
     const [internalOpen, setInternalOpen] = useState(false);
-
-    // Use controlled open if provided, otherwise use internal state
     const isOpen = open ?? internalOpen;
 
     const handleOpenChange = useCallback(
@@ -30,26 +40,26 @@ const ModelSwitchPanel = memo<ModelSwitchPanelProps>(
 
     return (
       <TooltipGroup>
-        <Popover
-          classNames={{
-            content: styles.container,
-          }}
-          content={
-            <PanelContent
-              isOpen={isOpen}
-              model={modelProp}
-              onModelChange={onModelChange}
-              onOpenChange={handleOpenChange}
-              provider={providerProp}
-            />
-          }
-          nativeButton={false}
-          onOpenChange={handleOpenChange}
-          open={isOpen}
-          placement={placement}
-        >
-          {children}
-        </Popover>
+        <DropdownMenuRoot open={isOpen} onOpenChange={handleOpenChange}>
+          <DropdownMenuTrigger className={styles.trigger} openOnHover={openOnHover}>
+            {children}
+          </DropdownMenuTrigger>
+          <DropdownMenuPortal>
+            <DropdownMenuPositioner hoverTrigger={openOnHover} placement={placement}>
+              <DropdownMenuPopup className={styles.container} onKeyDown={stopPropagation}>
+                <PanelContent
+                  ModelItemComponent={ModelItemComponent}
+                  enabledList={enabledList}
+                  model={modelProp}
+                  pricingMode={pricingMode}
+                  provider={providerProp}
+                  onModelChange={onModelChange}
+                  onOpenChange={handleOpenChange}
+                />
+              </DropdownMenuPopup>
+            </DropdownMenuPositioner>
+          </DropdownMenuPortal>
+        </DropdownMenuRoot>
       </TooltipGroup>
     );
   },

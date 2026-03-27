@@ -1,8 +1,8 @@
-import type { SendMessageParams } from '@lobechat/types';
+import { type SendMessageParams } from '@lobechat/types';
 
 import { useChatStore } from '@/store/chat';
 
-import type { Store as ConversationStore } from '../../../action';
+import { type Store as ConversationStore } from '../../../action';
 
 /**
  * Send a message in this conversation
@@ -26,10 +26,15 @@ export const sendMessage = (
     if (hooks.onBeforeSendMessage) {
       const result = await hooks.onBeforeSendMessage(params);
       if (result === false) {
-        console.log('[ConversationStore] sendMessage blocked by onBeforeSendMessage hook');
+        console.info('[ConversationStore] sendMessage blocked by onBeforeSendMessage hook');
         return;
       }
     }
+
+    // Keep ConversationStore in sync with the editor, which is cleared immediately on send.
+    // Do this before awaiting the full streaming lifecycle so drafts typed during generation
+    // are not overwritten when the request completes.
+    set({ inputMessage: '' });
 
     // Get global chat store
     const chatStore = useChatStore.getState();
@@ -56,8 +61,5 @@ export const sendMessage = (
     if (hooks.onAfterSendMessage) {
       await hooks.onAfterSendMessage();
     }
-
-    // Clear input message
-    set({ inputMessage: '' });
   };
 };

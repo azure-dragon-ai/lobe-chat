@@ -1,9 +1,9 @@
 import { DEFAULT_PROVIDER } from '@lobechat/business-const';
 import { DEFAULT_MODEL, DEFAUTT_AGENT_TTS_CONFIG } from '@lobechat/const';
-import type { AgentBuilderContext } from '@lobechat/context-engine';
-import { type AgentMode, type LobeAgentTTSConfig, type LocalSystemConfig } from '@lobechat/types';
+import { type AgentBuilderContext } from '@lobechat/context-engine';
+import { type AgentMode, type LobeAgentTTSConfig, type RuntimeEnvConfig } from '@lobechat/types';
 
-import type { AgentStoreState } from '../initialState';
+import { type AgentStoreState } from '../initialState';
 import { agentSelectors } from './selectors';
 
 /**
@@ -74,13 +74,13 @@ const getAgentEnableModeById =
   };
 
 /**
- * Get local system config by agentId
- * Now reads from chatConfig.localSystem
+ * Get runtime env config by agentId
+ * Now reads from chatConfig.runtimeEnv
  */
-const getAgentLocalSystemConfigById =
+const getAgentRuntimeEnvConfigById =
   (agentId: string) =>
-  (s: AgentStoreState): LocalSystemConfig | undefined =>
-    agentSelectors.getAgentConfigById(agentId)(s)?.chatConfig?.localSystem;
+  (s: AgentStoreState): RuntimeEnvConfig | undefined =>
+    agentSelectors.getAgentConfigById(agentId)(s)?.chatConfig?.runtimeEnv;
 
 /**
  * Get working directory by agentId
@@ -88,7 +88,7 @@ const getAgentLocalSystemConfigById =
 const getAgentWorkingDirectoryById =
   (agentId: string) =>
   (s: AgentStoreState): string | undefined =>
-    getAgentLocalSystemConfigById(agentId)(s)?.workingDirectory;
+    getAgentRuntimeEnvConfigById(agentId)(s)?.workingDirectory;
 
 /**
  * Get agent builder context by agentId
@@ -102,26 +102,33 @@ const getAgentBuilderContextById =
 
     return {
       config: {
-        chatConfig: config.chatConfig,
-        model: config.model,
-        openingMessage: config.openingMessage,
-        openingQuestions: config.openingQuestions,
-        params: config.params,
-        plugins: config.plugins,
-        provider: config.provider,
-        systemRole: config.systemRole,
+        chatConfig: config?.chatConfig,
+        model: config?.model,
+        openingMessage: config?.openingMessage,
+        openingQuestions: config?.openingQuestions,
+        params: config?.params,
+        plugins: config?.plugins,
+        provider: config?.provider,
+        systemRole: config?.systemRole,
       },
       meta,
     };
   };
 
+/**
+ * Get full agent data by agentId
+ * Returns the complete agent object including metadata fields like updatedAt
+ */
+const getAgentById = (agentId: string) => (s: AgentStoreState) => s.agentMap[agentId];
+
 export const agentByIdSelectors = {
   getAgentBuilderContextById,
+  getAgentById,
   getAgentConfigById: agentSelectors.getAgentConfigById,
   getAgentEnableModeById,
   getAgentFilesById,
   getAgentKnowledgeBasesById,
-  getAgentLocalSystemConfigById,
+  getAgentRuntimeEnvConfigById,
   getAgentModeById,
   getAgentModelById,
   getAgentModelProviderById,

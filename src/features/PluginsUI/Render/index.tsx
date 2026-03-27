@@ -2,12 +2,12 @@ import { type LobeToolRenderType } from '@lobechat/types';
 import { type PluginRequestPayload } from '@lobehub/chat-plugin-sdk';
 import { memo } from 'react';
 
-import { ToolErrorBoundary } from '@/features/Conversation/Messages/Tool/ErrorBoundary';
+import SafeBoundary from '@/components/ErrorBoundary';
 
 import BuiltinType from './BuiltinType';
 import DefaultType from './DefaultType';
-import MCP from './MCPType';
 import Markdown from './MarkdownType';
+import MCP from './MCPType';
 import Standalone from './StandaloneType';
 
 export interface PluginRenderProps {
@@ -97,9 +97,17 @@ const PluginRender = memo<PluginRenderProps>(
     const boundaryKey = `${identifier}-${payload?.apiName}-${toolCallId || messageId}`;
 
     return (
-      <ToolErrorBoundary apiName={payload?.apiName} identifier={identifier} key={boundaryKey}>
+      <SafeBoundary
+        alertTitle={
+          identifier
+            ? `${identifier}${payload?.apiName ? ` / ${payload.apiName}` : ''}`
+            : 'Tool Render Error'
+        }
+        key={boundaryKey}
+        variant="alert"
+      >
         {renderContent()}
-      </ToolErrorBoundary>
+      </SafeBoundary>
     );
   },
 );

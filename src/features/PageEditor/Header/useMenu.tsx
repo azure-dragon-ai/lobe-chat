@@ -1,8 +1,10 @@
-import { Flexbox, Icon } from '@lobehub/ui';
-import { App, Switch } from 'antd';
+import { isDesktop } from '@lobechat/const';
+import { type DropdownItem } from '@lobehub/ui';
+import { Icon } from '@lobehub/ui';
+import { App } from 'antd';
 import { cssVar, useResponsive } from 'antd-style';
 import dayjs from 'dayjs';
-import { CopyPlus, Download, Link2, Trash2 } from 'lucide-react';
+import { CopyPlus, Download, Link2, Maximize2, Trash2 } from 'lucide-react';
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
@@ -51,7 +53,7 @@ export const useMenu = (): { menuItems: any[] } => {
     }
   };
 
-  const handleExportMarkdown = () => {
+  const handleExportMarkdown = async () => {
     const state = storeApi.getState();
     const { editor, title } = state;
 
@@ -59,41 +61,43 @@ export const useMenu = (): { menuItems: any[] } => {
 
     try {
       const markdown = (editor.getDocument('markdown') as unknown as string) || '';
-      const blob = new Blob([markdown], { type: 'text/markdown' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${title || 'Untitled'}.md`;
-      document.body.append(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-      message.success(t('pageEditor.exportSuccess'));
+      const fileName = `${title || 'Untitled'}.md`;
+
+      if (isDesktop) {
+        const { desktopExportService } = await import('@/services/electron/desktopExportService');
+        await desktopExportService.exportMarkdown({
+          content: markdown,
+          fileName,
+        });
+      } else {
+        const blob = new Blob([markdown], { type: 'text/markdown' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName;
+        document.body.append(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+        message.success(t('pageEditor.exportSuccess'));
+      }
     } catch (error) {
       console.error('Failed to export markdown:', error);
       message.error(t('pageEditor.exportError'));
     }
   };
 
-  const menuItems = useMemo(
-    () => [
+  const menuItems = useMemo<DropdownItem[]>(() => {
+    const items: DropdownItem[] = [
       ...(showViewModeSwitch
         ? [
             {
+              checked: wideScreen,
+              icon: <Icon icon={Maximize2} />,
               key: 'full-width',
-              label: (
-                <Flexbox align="center" horizontal justify="space-between">
-                  <span>{t('viewMode.fullWidth', { ns: 'chat' })}</span>
-                  <Switch
-                    checked={wideScreen}
-                    onChange={toggleWideScreen}
-                    onClick={(checked, event) => {
-                      event.stopPropagation();
-                    }}
-                    size="small"
-                  />
-                </Flexbox>
-              ),
+              label: t('viewMode.fullWidth', { ns: 'chat' }),
+              onCheckedChange: toggleWideScreen,
+              type: 'switch' as const,
             },
             {
               type: 'divider' as const,
@@ -140,38 +144,43 @@ export const useMenu = (): { menuItems: any[] } => {
         key: 'export',
         label: t('pageEditor.menu.export'),
       },
-      {
-        type: 'divider' as const,
-      },
-      {
-        disabled: true,
-        key: 'page-info',
-        label: (
-          <div style={{ color: cssVar.colorTextTertiary, fontSize: 12, lineHeight: 1.6 }}>
-            <div>
-              {lastUpdatedTime
-                ? t('pageEditor.editedAt', {
-                    time: dayjs(lastUpdatedTime).format('MMMM D, YYYY [at] h:mm A'),
-                  })
-                : ''}
+    ];
+
+    if (lastUpdatedTime) {
+      items.push(
+        {
+          type: 'divider' as const,
+        },
+        {
+          disabled: true,
+          key: 'page-info',
+          label: (
+            <div style={{ color: cssVar.colorTextTertiary, fontSize: 12, lineHeight: 1.6 }}>
+              <div>
+                {lastUpdatedTime
+                  ? t('pageEditor.editedAt', {
+                      time: dayjs(lastUpdatedTime).format('MMMM D, YYYY [at] h:mm A'),
+                    })
+                  : ''}
+              </div>
             </div>
-          </div>
-        ),
-      },
-    ],
-    [
-      lastUpdatedTime,
-      storeApi,
-      t,
-      message,
-      modal,
-      wideScreen,
-      toggleWideScreen,
-      showViewModeSwitch,
-      handleDuplicate,
-      handleExportMarkdown,
-    ],
-  );
+          ),
+        },
+      );
+    }
+    return items;
+  }, [
+    lastUpdatedTime,
+    storeApi,
+    t,
+    message,
+    modal,
+    wideScreen,
+    toggleWideScreen,
+    showViewModeSwitch,
+    handleDuplicate,
+    handleExportMarkdown,
+  ]);
 
   return { menuItems };
 };

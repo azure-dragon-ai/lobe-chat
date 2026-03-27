@@ -5,7 +5,6 @@ import { Button, Center, Flexbox, Icon, lobeStaticStylish } from '@lobehub/ui';
 import { useSize } from 'ahooks';
 import { createStaticStyles, cx } from 'antd-style';
 import { ArrowRightIcon } from 'lucide-react';
-import Link from 'next/link';
 import { memo, useEffect, useRef, useState } from 'react';
 import Marquee from 'react-fast-marquee';
 import { useTranslation } from 'react-i18next';
@@ -61,7 +60,7 @@ const CloudBanner = memo<{ mobile?: boolean }>(({ mobile }) => {
   }, [size, contentSize, mobile]);
 
   const content = (
-    <Flexbox align={'center'} flex={'none'} gap={8} horizontal ref={contentRef}>
+    <Flexbox horizontal align={'center'} flex={'none'} gap={8} ref={contentRef}>
       <b>{t('alert.cloud.title', { name: LOBE_CHAT_CLOUD })}:</b>
       <span>
         {t(mobile ? 'alert.cloud.descOnMobile' : 'alert.cloud.desc', {
@@ -81,13 +80,13 @@ const CloudBanner = memo<{ mobile?: boolean }>(({ mobile }) => {
       width={'100%'}
     >
       <div className={styles.background} />
-      <Center className={styles.wrapper} gap={16} horizontal width={'100%'}>
+      <Center horizontal className={styles.wrapper} gap={16} width={'100%'}>
         {isTruncated ? <Marquee pauseOnHover>{content}</Marquee> : content}
-        <Link href={`${OFFICIAL_URL}?utm_source=${UTM_SOURCE}&utm_medium=banner`} target={'_blank'}>
+        <a href={`${OFFICIAL_URL}?utm_source=${UTM_SOURCE}&utm_medium=banner`} rel="noreferrer" target="_blank">
           <Button size={'small'} type="primary">
             {t('alert.cloud.action')} <Icon icon={ArrowRightIcon} />
           </Button>
-        </Link>
+        </a>
       </Center>
     </Center>
   );

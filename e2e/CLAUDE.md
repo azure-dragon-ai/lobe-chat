@@ -18,13 +18,13 @@ Related: [LOBE-2417](https://linear.app/lobehub/issue/LOBE-2417/建立核心产�
 
 ### 产品架构覆盖
 
-| 模块             | 子功能               | 优先级 | 状态 |
-| ---------------- | -------------------- | ------ | ---- |
-| **Agent**        | Builder, 对话，Task  | P0     | 🚧   |
-| **Agent Group**  | Builder, 群聊        | P1     | ⏳   |
-| **Page（文稿）** | 创建，编辑，分享     | P1     | ⏳   |
-| **知识库**       | 创建，上传，RAG 对话 | P1     | ⏳   |
-| **记忆**         | 查看，编辑，关联     | P2     | ⏳   |
+| 模块             | 子功能                            | 优先级 | 状态 |
+| ---------------- | --------------------------------- | ------ | ---- |
+| **Agent**        | Builder, 对话，Task               | P0     | 🚧   |
+| **Agent Group**  | Builder, 群聊                     | P0     | ⏳   |
+| **Page（文稿）** | 侧边栏 CRUD ✅，文档编辑，Copilot | P0     | 🚧   |
+| **知识库**       | 创建，上传，RAG 对话              | P1     | ⏳   |
+| **记忆**         | 查看，编辑，关联                  | P2     | ⏳   |
 
 ### 标签系统
 
@@ -82,7 +82,7 @@ e2e/
 │   │   │   │   ├── group-builder.feature
 │   │   │   │   └── group-chat.feature
 │   │   │   ├── page/
-│   │   │   │   └── page-crud.feature
+│   │   │   │   └── page-crud.feature  ✅
 │   │   │   ├── knowledge/
 │   │   │   │   └── knowledge-rag.feature
 │   │   │   └── memory/
@@ -92,6 +92,7 @@ e2e/
 │   │   └── regression/              # 回归测试
 │   ├── steps/                       # Step definitions
 │   │   ├── agent/                   # Agent 相关 steps
+│   │   ├── page/                    # Page 相关 steps
 │   │   ├── common/                  # 通用 steps (auth, navigation)
 │   │   └── hooks.ts                 # Before/After hooks
 │   ├── mocks/                       # Mock 框架
@@ -297,12 +298,11 @@ HEADLESS=false pnpm exec cucumber-js --config cucumber.config.js --tags "@smoke"
 运行测试需要以下环境变量：
 
 ```bash
-BASE_URL=http://localhost:3010   # 测试服务器地址
-DATABASE_URL=postgresql://...    # 数据库连接
-DATABASE_DRIVER=node             # 数据库驱动
-KEY_VAULTS_SECRET=...            # 密钥
-BETTER_AUTH_SECRET=...           # Auth 密钥
-NEXT_PUBLIC_ENABLE_BETTER_AUTH=1 # 启用 Better Auth
+BASE_URL=http://localhost:3010 # 测试服务器地址
+DATABASE_URL=postgresql://...  # 数据库连接
+DATABASE_DRIVER=node           # 数据库驱动
+KEY_VAULTS_SECRET=...          # 密钥
+AUTH_SECRET=...                # Auth 密钥
 
 # 可选：S3 相关（如果测试涉及文件上传）
 S3_ACCESS_KEY_ID=e2e-mock-access-key

@@ -13,6 +13,7 @@ const { mockNativeTheme, mockBrowserWindow } = vi.hoisted(() => ({
     off: vi.fn(),
     on: vi.fn(),
     shouldUseDarkColors: false,
+    themeSource: 'system' as string,
   },
 }));
 
@@ -35,16 +36,22 @@ vi.mock('@/const/dir', () => ({
 
 vi.mock('@/const/env', () => ({
   isDev: false,
+  isLinux: false,
+  isMac: false,
+  isMacTahoe: false,
   isWindows: true,
 }));
 
-vi.mock('@/const/theme', () => ({
+vi.mock('@lobechat/desktop-bridge', () => ({
+  TITLE_BAR_HEIGHT: 38,
+}));
+
+vi.mock('../../../const/theme', () => ({
   BACKGROUND_DARK: '#1a1a1a',
   BACKGROUND_LIGHT: '#ffffff',
   SYMBOL_COLOR_DARK: '#ffffff',
   SYMBOL_COLOR_LIGHT: '#000000',
   THEME_CHANGE_DELAY: 0,
-  TITLE_BAR_HEIGHT: 32,
 }));
 
 describe('WindowThemeManager', () => {
@@ -55,6 +62,7 @@ describe('WindowThemeManager', () => {
     vi.useFakeTimers();
 
     mockNativeTheme.shouldUseDarkColors = false;
+    mockNativeTheme.themeSource = 'system';
     mockBrowserWindow.isDestroyed.mockReturnValue(false);
 
     manager = new WindowThemeManager('test-window');
@@ -88,8 +96,8 @@ describe('WindowThemeManager', () => {
         backgroundColor: '#1a1a1a',
         icon: undefined,
         titleBarOverlay: {
-          color: '#1a1a1a',
-          height: 32,
+          color: '#00000000',
+          height: 36,
           symbolColor: '#ffffff',
         },
         titleBarStyle: 'hidden',
@@ -105,8 +113,8 @@ describe('WindowThemeManager', () => {
         backgroundColor: '#ffffff',
         icon: undefined,
         titleBarOverlay: {
-          color: '#ffffff',
-          height: 32,
+          color: '#00000000',
+          height: 36,
           symbolColor: '#000000',
         },
         titleBarStyle: 'hidden',
@@ -182,8 +190,8 @@ describe('WindowThemeManager', () => {
 
       expect(mockBrowserWindow.setBackgroundColor).toHaveBeenCalledWith('#1a1a1a');
       expect(mockBrowserWindow.setTitleBarOverlay).toHaveBeenCalledWith({
-        color: '#1a1a1a',
-        height: 32,
+        color: '#00000000',
+        height: 36,
         symbolColor: '#ffffff',
       });
     });
@@ -194,8 +202,8 @@ describe('WindowThemeManager', () => {
 
       expect(mockBrowserWindow.setBackgroundColor).toHaveBeenCalledWith('#ffffff');
       expect(mockBrowserWindow.setTitleBarOverlay).toHaveBeenCalledWith({
-        color: '#ffffff',
-        height: 32,
+        color: '#00000000',
+        height: 36,
         symbolColor: '#000000',
       });
     });

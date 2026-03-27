@@ -1,4 +1,4 @@
-import { AIChatModelCard, AIImageModelCard } from '../types/aiModel';
+import { type AIChatModelCard, type AIImageModelCard } from '../types/aiModel';
 
 const minimaxChatModels: AIChatModelCard[] = [
   {
@@ -7,9 +7,101 @@ const minimaxChatModels: AIChatModelCard[] = [
       reasoning: true,
     },
     contextWindowTokens: 204_800,
-    description: '强大多语言编程实力，全面升级编程体验',
-    displayName: 'MiniMax M2.1',
+    description:
+      'First self-evolving model with top-tier coding and agentic performance (~60 tps).',
+    displayName: 'MiniMax M2.7',
     enabled: true,
+    id: 'MiniMax-M2.7',
+    maxOutput: 131_072,
+    pricing: {
+      currency: 'CNY',
+      units: [
+        { name: 'textInput_cacheRead', rate: 0.42, strategy: 'fixed', unit: 'millionTokens' },
+        { name: 'textInput_cacheWrite', rate: 2.625, strategy: 'fixed', unit: 'millionTokens' },
+        { name: 'textInput', rate: 2.1, strategy: 'fixed', unit: 'millionTokens' },
+        { name: 'textOutput', rate: 8.4, strategy: 'fixed', unit: 'millionTokens' },
+      ],
+    },
+    releasedAt: '2026-03-18',
+    type: 'chat',
+  },
+  {
+    abilities: {
+      functionCall: true,
+      reasoning: true,
+    },
+    contextWindowTokens: 204_800,
+    description: 'Same performance as M2.7 with significantly faster inference (~100 tps).',
+    displayName: 'MiniMax M2.7 Highspeed',
+    id: 'MiniMax-M2.7-highspeed',
+    maxOutput: 131_072,
+    pricing: {
+      currency: 'CNY',
+      units: [
+        { name: 'textInput_cacheRead', rate: 0.42, strategy: 'fixed', unit: 'millionTokens' },
+        { name: 'textInput_cacheWrite', rate: 2.625, strategy: 'fixed', unit: 'millionTokens' },
+        { name: 'textInput', rate: 4.2, strategy: 'fixed', unit: 'millionTokens' },
+        { name: 'textOutput', rate: 16.8, strategy: 'fixed', unit: 'millionTokens' },
+      ],
+    },
+    releasedAt: '2026-03-18',
+    type: 'chat',
+  },
+  {
+    abilities: {
+      functionCall: true,
+      reasoning: true,
+    },
+    contextWindowTokens: 204_800,
+    description:
+      'Top-tier performance and ultimate cost-effectiveness, easily handling complex tasks (approx. 60 tps).',
+    displayName: 'MiniMax M2.5',
+    enabled: true,
+    id: 'MiniMax-M2.5',
+    maxOutput: 131_072,
+    pricing: {
+      currency: 'CNY',
+      units: [
+        { name: 'textInput_cacheRead', rate: 0.21, strategy: 'fixed', unit: 'millionTokens' },
+        { name: 'textInput_cacheWrite', rate: 2.625, strategy: 'fixed', unit: 'millionTokens' },
+        { name: 'textInput', rate: 2.1, strategy: 'fixed', unit: 'millionTokens' },
+        { name: 'textOutput', rate: 8.4, strategy: 'fixed', unit: 'millionTokens' },
+      ],
+    },
+    releasedAt: '2026-02-12',
+    type: 'chat',
+  },
+  {
+    abilities: {
+      functionCall: true,
+      reasoning: true,
+    },
+    contextWindowTokens: 204_800,
+    description: 'M2.5 Lightning: Same performance, faster and more agile (approx. 100 tps).',
+    displayName: 'MiniMax M2.5 Lightning',
+    id: 'MiniMax-M2.5-Lightning',
+    maxOutput: 131_072,
+    pricing: {
+      currency: 'CNY',
+      units: [
+        { name: 'textInput_cacheRead', rate: 0.21, strategy: 'fixed', unit: 'millionTokens' },
+        { name: 'textInput_cacheWrite', rate: 2.625, strategy: 'fixed', unit: 'millionTokens' },
+        { name: 'textInput', rate: 2.1, strategy: 'fixed', unit: 'millionTokens' },
+        { name: 'textOutput', rate: 16.8, strategy: 'fixed', unit: 'millionTokens' },
+      ],
+    },
+    releasedAt: '2026-02-12',
+    type: 'chat',
+  },
+  {
+    abilities: {
+      functionCall: true,
+      reasoning: true,
+    },
+    contextWindowTokens: 204_800,
+    description:
+      'Powerful multilingual programming capabilities, comprehensively upgraded programming experience',
+    displayName: 'MiniMax M2.1',
     id: 'MiniMax-M2.1',
     maxOutput: 131_072,
     pricing: {
@@ -30,7 +122,8 @@ const minimaxChatModels: AIChatModelCard[] = [
       reasoning: true,
     },
     contextWindowTokens: 204_800,
-    description: '强大多语言编程实力，全面升级编程体验。更快，更高效。',
+    description:
+      'Powerful multilingual programming capabilities, comprehensively upgraded programming experience. Faster and more efficient.',
     displayName: 'MiniMax M2.1 Lightning',
     id: 'MiniMax-M2.1-Lightning',
     maxOutput: 131_072,
@@ -52,7 +145,7 @@ const minimaxChatModels: AIChatModelCard[] = [
       reasoning: true,
     },
     contextWindowTokens: 204_800,
-    description: '专为高效编码与Agent工作流而生',
+    description: 'Built specifically for efficient coding and Agent workflows',
     displayName: 'MiniMax M2',
     id: 'MiniMax-M2',
     maxOutput: 131_072,
@@ -74,7 +167,8 @@ const minimaxChatModels: AIChatModelCard[] = [
       reasoning: true,
     },
     contextWindowTokens: 204_800,
-    description: 'Built for efficient coding and agent workflows, with higher concurrency for commercial use.',
+    description:
+      'Built for efficient coding and agent workflows, with higher concurrency for commercial use.',
     displayName: 'MiniMax M2 Stable',
     id: 'MiniMax-M2-Stable',
     maxOutput: 131_072,
@@ -136,7 +230,8 @@ const minimaxChatModels: AIChatModelCard[] = [
 
 const minimaxImageModels: AIImageModelCard[] = [
   {
-    description: 'A new image generation model with fine detail, supporting text-to-image and image-to-image.',
+    description:
+      'A new image generation model with fine detail, supporting text-to-image and image-to-image.',
     displayName: 'Image 01',
     enabled: true,
     id: 'image-01',
@@ -145,6 +240,7 @@ const minimaxImageModels: AIImageModelCard[] = [
         default: '1:1',
         enum: ['1:1', '16:9', '4:3', '3:2', '2:3', '3:4', '9:16', '21:9'],
       },
+      imageUrls: { default: [] },
       prompt: {
         default: '',
       },
@@ -162,8 +258,9 @@ const minimaxImageModels: AIImageModelCard[] = [
     parameters: {
       aspectRatio: {
         default: '1:1',
-        enum: ['1:1', '16:9', '4:3', '3:2', '2:3', '3:4', '9:16', '21:9'],
+        enum: ['1:1', '16:9', '4:3', '3:2', '2:3', '3:4', '9:16'],
       },
+      imageUrls: { default: [] },
       prompt: {
         default: '',
       },

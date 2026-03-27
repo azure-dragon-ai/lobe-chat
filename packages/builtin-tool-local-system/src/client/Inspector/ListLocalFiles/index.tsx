@@ -1,27 +1,16 @@
 'use client';
 
-import { type ListLocalFileParams } from '@lobechat/electron-client-ipc';
-import { type BuiltinInspectorProps } from '@lobechat/types';
-import { Text } from '@lobehub/ui';
-import { createStaticStyles, cssVar, cx } from 'antd-style';
+import type { ListLocalFileParams } from '@lobechat/electron-client-ipc';
+import type { BuiltinInspectorProps } from '@lobechat/types';
+import { Flexbox, Text } from '@lobehub/ui';
+import { cssVar, cx } from 'antd-style';
 import { memo } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { shinyTextStyles } from '@/styles';
+import { inspectorTextStyles, shinyTextStyles } from '@/styles';
 
-import { type LocalFileListState } from '../../..';
+import type { LocalFileListState } from '../../..';
 import { FilePathDisplay } from '../../components/FilePathDisplay';
-
-const styles = createStaticStyles(({ css, cssVar }) => ({
-  root: css`
-    overflow: hidden;
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 1;
-
-    color: ${cssVar.colorTextSecondary};
-  `,
-}));
 
 export const ListLocalFilesInspector = memo<
   BuiltinInspectorProps<ListLocalFileParams, LocalFileListState>
@@ -34,15 +23,15 @@ export const ListLocalFilesInspector = memo<
   if (isArgumentsStreaming) {
     if (!path)
       return (
-        <div className={cx(styles.root, shinyTextStyles.shinyText)}>
+        <div className={cx(inspectorTextStyles.root, shinyTextStyles.shinyText)}>
           <span>{t('builtins.lobe-local-system.apiName.listLocalFiles')}</span>
         </div>
       );
 
     return (
-      <div className={cx(styles.root, shinyTextStyles.shinyText)}>
+      <div className={cx(inspectorTextStyles.root, shinyTextStyles.shinyText)}>
         <span>{t('builtins.lobe-local-system.apiName.listLocalFiles')}: </span>
-        <FilePathDisplay filePath={path} isDirectory />
+        <FilePathDisplay isDirectory filePath={path} />
       </div>
     );
   }
@@ -52,9 +41,11 @@ export const ListLocalFilesInspector = memo<
   const hasResults = resultCount > 0;
 
   return (
-    <div className={cx(styles.root, isLoading && shinyTextStyles.shinyText)}>
+    <div className={cx(inspectorTextStyles.root, isLoading && shinyTextStyles.shinyText)}>
       <span>{t('builtins.lobe-local-system.apiName.listLocalFiles')}: </span>
-      <FilePathDisplay filePath={path} isDirectory />
+      <Flexbox allowShrink horizontal align={'center'} justify={'center'}>
+        <FilePathDisplay isDirectory filePath={path} />
+      </Flexbox>
       {!isLoading &&
         pluginState?.listResults &&
         (hasResults ? (

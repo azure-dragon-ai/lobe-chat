@@ -1,80 +1,54 @@
-import {
-  IEditor,
-  ReactCodePlugin,
-  ReactCodemirrorPlugin,
-  ReactHRPlugin,
-  ReactLinkPlugin,
-  ReactListPlugin,
-  ReactMathPlugin,
-  ReactTablePlugin,
-} from '@lobehub/editor';
+import { type IEditor } from '@lobehub/editor';
+import { ReactLinkPlugin, ReactMentionPlugin, ReactTablePlugin } from '@lobehub/editor';
 import { Editor } from '@lobehub/editor/react';
 import { Flexbox } from '@lobehub/ui';
-import { FC, useMemo } from 'react';
+import { type FC, useMemo } from 'react';
 
-import { useUserStore } from '@/store/user';
-import { labPreferSelectors } from '@/store/user/selectors';
+import { createChatInputRichPlugins } from '@/features/ChatInput/InputEditor/plugins';
 
 import TypoBar from './Typobar';
 
 interface EditorCanvasProps {
   defaultValue?: string;
   editor?: IEditor;
+  editorData?: unknown;
 }
 
-const EditorCanvas: FC<EditorCanvasProps> = ({ defaultValue, editor }) => {
-  const enableRichRender = useUserStore(labPreferSelectors.enableInputMarkdown);
+const EDITOR_PLUGINS = [
+  ...createChatInputRichPlugins({ linkPlugin: ReactLinkPlugin }),
+  ReactTablePlugin,
+  ReactMentionPlugin,
+];
 
-  const richRenderProps = useMemo(
-    () =>
-      !enableRichRender
-        ? {
-            enablePasteMarkdown: false,
-            markdownOption: false,
-          }
-        : {
-            plugins: [
-              ReactListPlugin,
-              ReactCodePlugin,
-              ReactCodemirrorPlugin,
-              ReactHRPlugin,
-              ReactLinkPlugin,
-              ReactTablePlugin,
-              ReactMathPlugin,
-            ],
-          },
-    [enableRichRender],
-  );
+const EditorCanvas: FC<EditorCanvasProps> = ({ defaultValue, editor, editorData }) => {
+  const { content, type } = useMemo(() => {
+    const hasValidEditorData =
+      editorData && typeof editorData === 'object' && Object.keys(editorData).length > 0;
+
+    if (hasValidEditorData) {
+      return { content: JSON.stringify(editorData), type: 'json' as const };
+    }
+
+    return { content: defaultValue || '', type: 'markdown' as const };
+  }, [editorData, defaultValue]);
 
   return (
     <>
-      {enableRichRender && <TypoBar editor={editor} />}
+      <TypoBar editor={editor} />
       <Flexbox
         padding={16}
         style={{ cursor: 'text', maxHeight: '80vh', minHeight: '50vh', overflowY: 'auto' }}
       >
         <Editor
           autoFocus
-          content={''}
+          content={content}
           editor={editor}
-          onInit={(editor) => {
-            if (!editor || !defaultValue) return;
-            try {
-              if (enableRichRender) {
-                editor?.setDocument('markdown', defaultValue);
-              } else {
-                editor?.setDocument('text', defaultValue);
-              }
-            } catch (e) {
-              console.error('setDocument error:', e);
-            }
-          }}
+          plugins={EDITOR_PLUGINS}
+          type={type}
+          variant={'chat'}
           style={{
             paddingBottom: 120,
           }}
-          type={'text'}
-          variant={'chat'}
-          {...richRenderProps}
         />
       </Flexbox>
     </>

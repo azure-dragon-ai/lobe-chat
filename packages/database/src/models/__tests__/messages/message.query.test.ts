@@ -1,10 +1,10 @@
 import { INBOX_SESSION_ID } from '@lobechat/const';
-import dayjs from 'dayjs';
 import { eq } from 'drizzle-orm';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { uuid } from '@/utils/uuid';
 
+import { getTestDB } from '../../../core/getTestDB';
 import {
   agents,
   agentsToSessions,
@@ -14,21 +14,19 @@ import {
   embeddings,
   fileChunks,
   files,
-  messagePlugins,
   messageQueries,
   messageQueryChunks,
-  messageTTS,
-  messageTranslates,
   messages,
   messagesFiles,
+  messageTranslates,
+  messageTTS,
   sessions,
   threads,
   topics,
   users,
 } from '../../../schemas';
-import { LobeChatDatabase } from '../../../type';
+import type { LobeChatDatabase } from '../../../type';
 import { MessageModel } from '../../message';
-import { getTestDB } from '../../../core/getTestDB';
 import { codeEmbedding } from '../fixtures/embedding';
 
 const serverDB: LobeChatDatabase = await getTestDB();
@@ -52,7 +50,7 @@ beforeEach(async () => {
     ]);
     await trx.insert(files).values({
       id: 'f1',
-      userId: userId,
+      userId,
       url: 'abc',
       name: 'file-1',
       fileType: 'image/png',
@@ -1196,7 +1194,7 @@ describe('MessageModel Query Tests', () => {
   });
 
   describe('queryAll', () => {
-    it('should return all messages belonging to the user in ascending order', async () => {
+    it('should return all messages belonging to the user in descending order', async () => {
       // Create test data
       await serverDB.insert(messages).values([
         {
@@ -1225,10 +1223,10 @@ describe('MessageModel Query Tests', () => {
       // Call queryAll method
       const result = await messageModel.queryAll();
 
-      // Assert result
+      // Assert result - descending by createdAt
       expect(result).toHaveLength(2);
-      expect(result[0].id).toBe('1');
-      expect(result[1].id).toBe('2');
+      expect(result[0].id).toBe('2');
+      expect(result[1].id).toBe('1');
     });
   });
 
@@ -1405,7 +1403,9 @@ describe('MessageModel Query Tests', () => {
     });
   });
 
-  describe('queryByKeyWord', () => {
+  // BM25 search requires pg_search extension (ParadeDB), not available in PGlite
+  const isServerDB = process.env.TEST_SERVER_DB === '1';
+  describe.skipIf(!isServerDB)('queryByKeyWord', () => {
     it('should query messages by keyword', async () => {
       // Create test data
       await serverDB.insert(messages).values([

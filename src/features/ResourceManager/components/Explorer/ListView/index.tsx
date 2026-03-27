@@ -3,18 +3,21 @@
 import { Center, Checkbox, Flexbox } from '@lobehub/ui';
 import { createStaticStyles, cssVar, cx } from 'antd-style';
 import debug from 'debug';
-import { type DragEvent, memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { type DragEvent } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Virtuoso, type VirtuosoHandle } from 'react-virtuoso';
+import { type VirtuosoHandle } from 'react-virtuoso';
+import { Virtuoso } from 'react-virtuoso';
 
-import { useDragActive } from '@/app/[variants]/(main)/resource/features/DndContextWrapper';
-import { useFolderPath } from '@/app/[variants]/(main)/resource/features/hooks/useFolderPath';
+import { useDragActive } from '@/routes/(main)/resource/features/DndContextWrapper';
+import { useFolderPath } from '@/routes/(main)/resource/features/hooks/useFolderPath';
 import {
   useResourceManagerFetchFolderBreadcrumb,
   useResourceManagerStore,
-} from '@/app/[variants]/(main)/resource/features/store';
-import { sortFileList } from '@/app/[variants]/(main)/resource/features/store/selectors';
+} from '@/routes/(main)/resource/features/store';
+import { sortFileList } from '@/routes/(main)/resource/features/store/selectors';
 import { useFileStore } from '@/store/file';
+import { useFetchResources } from '@/store/file/slices/resource/hooks';
 import { useGlobalStore } from '@/store/global';
 import { INITIAL_STATUS } from '@/store/global/initialState';
 import { type AsyncTaskStatus } from '@/types/asyncTask';
@@ -33,7 +36,7 @@ const styles = createStaticStyles(({ css }) => ({
   `,
   dropZoneActive: css`
     background: ${cssVar.colorPrimaryBg};
-    outline: 2px dashed ${cssVar.colorPrimary};
+    outline: 1px dashed ${cssVar.colorPrimaryBorder};
     outline-offset: -4px;
   `,
   header: css`
@@ -53,23 +56,25 @@ const styles = createStaticStyles(({ css }) => ({
   `,
 }));
 
-const ListView = memo(() => {
+const ListView = memo(function ListView() {
   const [
+    libraryId,
+    category,
     selectFileIds,
     setSelectedFileIds,
     pendingRenameItemId,
-    fileListHasMore,
-    loadMoreKnowledgeItems,
     sorter,
     sortType,
+    storeIsTransitioning,
   ] = useResourceManagerStore((s) => [
+    s.libraryId,
+    s.category,
     s.selectedFileIds,
     s.setSelectedFileIds,
     s.pendingRenameItemId,
-    s.fileListHasMore,
-    s.loadMoreKnowledgeItems,
     s.sorter,
     s.sortType,
+    s.isTransitioning,
   ]);
 
   // Access column widths from Global store
@@ -83,6 +88,7 @@ const ListView = memo(() => {
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const isDragActive = useDragActive();
   const [isDropZoneActive, setIsDropZoneActive] = useState(false);
+  const [isAnyRowHovered, setIsAnyRowHovered] = useState(false);
   const scrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autoScrollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -93,6 +99,31 @@ const ListView = memo(() => {
 
   // Get current folder ID - either from breadcrumb or null for root
   const currentFolderId = folderBreadcrumb?.at(-1)?.id || null;
+
+  const queryParams = useMemo(
+    () => ({
+      category: libraryId ? undefined : category,
+      libraryId,
+      parentId: currentFolderSlug || null,
+      showFilesInKnowledgeBase: false,
+      sortType,
+      sorter,
+    }),
+    [category, currentFolderSlug, libraryId, sorter, sortType],
+  );
+
+  const { isLoading, isValidating } = useFetchResources(queryParams);
+  const { queryParams: currentQueryParams, hasMore, loadMoreResources } = useFileStore();
+
+  const isNavigating = useMemo(() => {
+    if (!currentQueryParams || !queryParams) return false;
+
+    return (
+      currentQueryParams.libraryId !== queryParams.libraryId ||
+      currentQueryParams.parentId !== queryParams.parentId ||
+      currentQueryParams.category !== queryParams.category
+    );
+  }, [currentQueryParams, queryParams]);
 
   const resourceList = useFileStore((s) => s.resourceList);
 
@@ -111,6 +142,17 @@ const ListView = memo(() => {
 
   // Sort data using current sort settings
   const data = sortFileList(rawData, sorter, sortType) || [];
+
+  const dataLength = data.length;
+  const effectiveIsLoading = isLoading ?? false;
+  const effectiveIsNavigating = isNavigating ?? false;
+  const effectiveIsTransitioning = storeIsTransitioning ?? false;
+  const effectiveIsValidating = isValidating ?? false;
+
+  const showSkeleton =
+    (effectiveIsLoading && dataLength === 0) ||
+    (effectiveIsNavigating && effectiveIsValidating) ||
+    effectiveIsTransitioning;
 
   const dataRef = useRef<FileListItemType[]>(data);
 
@@ -191,17 +233,17 @@ const ListView = memo(() => {
 
   // Handle automatic load more when reaching the end
   const handleEndReached = useCallback(async () => {
-    log('handleEndReached', fileListHasMore, isLoadingMore);
+    log('handleEndReached', hasMore, isLoadingMore);
 
-    if (!fileListHasMore || isLoadingMore) return;
+    if (!hasMore || isLoadingMore) return;
 
     setIsLoadingMore(true);
     try {
-      await loadMoreKnowledgeItems();
+      await loadMoreResources();
     } finally {
       setIsLoadingMore(false);
     }
-  }, [fileListHasMore, loadMoreKnowledgeItems, isLoadingMore]);
+  }, [hasMore, loadMoreResources, isLoadingMore]);
 
   // Clear auto-scroll timers
   const clearScrollTimers = useCallback(() => {
@@ -281,18 +323,26 @@ const ListView = memo(() => {
   }, [clearScrollTimers]);
 
   // Memoize footer component to show skeleton loaders when loading more
+  // eslint-disable-next-line @eslint-react/no-nested-component-definitions
   const Footer = useCallback(() => {
-    if (!isLoadingMore || !fileListHasMore) return null;
-    return <ListViewSkeleton columnWidths={columnWidths} />;
-  }, [isLoadingMore, fileListHasMore, columnWidths]);
+    if (isLoadingMore && hasMore) return <ListViewSkeleton columnWidths={columnWidths} />;
+
+    // Leave some padding at the end when there are no more pages,
+    // so users can clearly feel they've reached the end of the list.
+    if (hasMore === false && dataLength > 0) return <div aria-hidden style={{ height: 96 }} />;
+
+    return null;
+  }, [columnWidths, dataLength, hasMore, isLoadingMore]);
+
+  if (showSkeleton) return <ListViewSkeleton columnWidths={columnWidths} />;
 
   return (
     <Flexbox height={'100%'}>
       <div className={styles.scrollContainer}>
         <Flexbox
+          horizontal
           align={'center'}
           className={styles.header}
-          horizontal
           paddingInline={8}
           style={{
             borderBlockEnd: `1px solid ${cssVar.colorBorderSecondary}`,
@@ -319,7 +369,12 @@ const ListView = memo(() => {
               width: columnWidths.name,
             }}
           >
-            {t('FileManager.title.title')}
+            {selectFileIds.length > 0
+              ? t('FileManager.total.selectedCount', {
+                  count: selectFileIds.length,
+                  ns: 'components',
+                })
+              : t('FileManager.title.title')}
             <ColumnResizeHandle
               column="name"
               currentWidth={columnWidths.name}
@@ -360,17 +415,21 @@ const ListView = memo(() => {
           </Flexbox>
         </Flexbox>
         <div
-          className={cx(styles.dropZone, isDropZoneActive && styles.dropZoneActive)}
           data-drop-target-id={currentFolderId || undefined}
           data-is-folder="true"
+          ref={containerRef}
+          style={{ overflow: 'hidden', position: 'relative' }}
+          className={cx(
+            styles.dropZone,
+            isDropZoneActive && styles.dropZoneActive,
+            isAnyRowHovered && 'any-row-hovered',
+          )}
           onDragLeave={handleDropZoneDragLeave}
+          onDrop={handleDropZoneDrop}
           onDragOver={(e) => {
             handleDropZoneDragOver(e);
             handleDragMove(e);
           }}
-          onDrop={handleDropZoneDrop}
-          ref={containerRef}
-          style={{ overflow: 'hidden', position: 'relative' }}
         >
           <Virtuoso
             components={{ Footer }}
@@ -379,23 +438,25 @@ const ListView = memo(() => {
             endReached={handleEndReached}
             increaseViewportBy={{ bottom: 800, top: 1200 }}
             initialItemCount={30}
+            overscan={48 * 5}
+            ref={virtuosoRef}
+            style={{ height: 'calc(100vh - 100px)' }}
             itemContent={(index, item) => {
               if (!item) return null;
               return (
                 <FileListItem
                   columnWidths={columnWidths}
                   index={index}
+                  isAnyRowHovered={isAnyRowHovered}
                   key={item.id}
-                  onSelectedChange={handleSelectionChange}
                   pendingRenameItemId={pendingRenameItemId}
                   selected={selectFileIds.includes(item.id)}
+                  onHoverChange={setIsAnyRowHovered}
+                  onSelectedChange={handleSelectionChange}
                   {...item}
                 />
               );
             }}
-            overscan={48 * 5}
-            ref={virtuosoRef}
-            style={{ height: 'calc(100vh - 100px)' }}
           />
         </div>
       </div>

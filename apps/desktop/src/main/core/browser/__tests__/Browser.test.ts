@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { App as AppCore } from '../../App';
-import Browser, { BrowserWindowOpts } from '../Browser';
+import { type App as AppCore } from '../../App';
+import Browser, { type BrowserWindowOpts } from '../Browser';
 
 // Use vi.hoisted to define mocks before hoisting
 const { mockBrowserWindow, mockNativeTheme, mockIpcMain, mockScreen, MockBrowserWindow } =
@@ -41,6 +41,7 @@ const { mockBrowserWindow, mockNativeTheme, mockIpcMain, mockScreen, MockBrowser
           },
         },
         on: vi.fn(),
+        setWindowOpenHandler: vi.fn(),
       },
     };
 
@@ -98,17 +99,18 @@ vi.mock('@/const/dir', () => ({
 
 vi.mock('@/const/env', () => ({
   isDev: false,
+  isLinux: false,
   isMac: false,
+  isMacTahoe: false,
   isWindows: true,
 }));
 
-vi.mock('@/const/theme', () => ({
+vi.mock('../../../const/theme', () => ({
   BACKGROUND_DARK: '#1a1a1a',
   BACKGROUND_LIGHT: '#ffffff',
   SYMBOL_COLOR_DARK: '#ffffff',
   SYMBOL_COLOR_LIGHT: '#000000',
   THEME_CHANGE_DELAY: 0,
-  TITLE_BAR_HEIGHT: 32,
 }));
 
 describe('Browser', () => {
@@ -239,7 +241,7 @@ describe('Browser', () => {
       });
 
       // Create new browser to trigger initialization with saved state
-      const newBrowser = new Browser(defaultOptions, mockApp);
+      const _newBrowser = new Browser(defaultOptions, mockApp);
 
       expect(MockBrowserWindow).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -327,13 +329,13 @@ describe('Browser', () => {
         mockNativeTheme.shouldUseDarkColors = true;
 
         // Create browser with dark mode
-        const darkBrowser = new Browser(defaultOptions, mockApp);
+        const _darkBrowser = new Browser(defaultOptions, mockApp);
 
         expect(MockBrowserWindow).toHaveBeenCalledWith(
           expect.objectContaining({
             backgroundColor: '#1a1a1a',
             titleBarOverlay: expect.objectContaining({
-              color: '#1a1a1a',
+              color: '#00000000',
               symbolColor: '#ffffff',
             }),
           }),
@@ -347,7 +349,7 @@ describe('Browser', () => {
           expect.objectContaining({
             backgroundColor: '#ffffff',
             titleBarOverlay: expect.objectContaining({
-              color: '#ffffff',
+              color: '#00000000',
               symbolColor: '#000000',
             }),
           }),
@@ -602,12 +604,12 @@ describe('Browser', () => {
         ...defaultOptions,
         keepAlive: true,
       };
-      const keepAliveBrowser = new Browser(keepAliveOptions, mockApp);
+      const _keepAliveBrowser = new Browser(keepAliveOptions, mockApp);
 
       // Get the new close handler
-      const keepAliveCloseHandler = mockBrowserWindow.on.mock.calls
-        .filter((call) => call[0] === 'close')
-        .pop()?.[1];
+      const keepAliveCloseHandler = mockBrowserWindow.on.mock.calls.findLast(
+        (call) => call[0] === 'close',
+      )?.[1];
 
       const mockEvent = { preventDefault: vi.fn() };
       keepAliveCloseHandler(mockEvent);

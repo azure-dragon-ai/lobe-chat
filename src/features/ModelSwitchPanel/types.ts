@@ -1,7 +1,10 @@
-import type { AiModelForSelect } from 'model-bank';
-import type { ReactNode } from 'react';
+import { type DropdownMenuPlacement } from '@lobehub/ui';
+import { type AiModelForSelect } from 'model-bank';
+import { type ComponentType } from 'react';
 
-import type { EnabledProviderWithModels } from '@/types/aiProvider';
+import { type EnabledProviderWithModels } from '@/types/aiProvider';
+
+import { type PricingMode } from './components/ModelDetailPanel';
 
 export type GroupMode = 'byModel' | 'byProvider';
 
@@ -16,7 +19,7 @@ export interface ModelWithProviders {
   }>;
 }
 
-export type VirtualItem =
+export type ListItem =
   | {
       data: ModelWithProviders;
       type: 'model-item-single';
@@ -42,20 +45,22 @@ export type VirtualItem =
       type: 'no-provider';
     };
 
-export type DropdownPlacement =
-  | 'bottom'
-  | 'bottomLeft'
-  | 'bottomRight'
-  | 'top'
-  | 'topLeft'
-  | 'topRight';
+export type DropdownPlacement = DropdownMenuPlacement;
 
 export interface ModelSwitchPanelProps {
-  children?: ReactNode;
+  children?: React.ReactNode;
+  /**
+   * When set (e.g. image/video generation), uses this list instead of enabled chat models.
+   */
+  enabledList?: EnabledProviderWithModels[];
   /**
    * Current model ID. If not provided, uses currentAgentModel from store.
    */
   model?: string;
+  /**
+   * Optional row component for generation UIs (e.g. ImageModelItem). Requires `enabledList` + `pricingMode`.
+   */
+  ModelItemComponent?: ComponentType<any>;
   /**
    * Callback when model changes. If not provided, uses updateAgentConfig from store.
    */
@@ -63,9 +68,17 @@ export interface ModelSwitchPanelProps {
   onOpenChange?: (open: boolean) => void;
   open?: boolean;
   /**
+   * Whether to open the panel on hover. Defaults to true.
+   */
+  openOnHover?: boolean;
+  /**
    * Dropdown placement. Defaults to 'topLeft'.
    */
   placement?: DropdownPlacement;
+  /**
+   * Pass-through to ModelDetailPanel for image/video approximate pricing.
+   */
+  pricingMode?: PricingMode;
   /**
    * Current provider ID. If not provided, uses currentAgentModelProvider from store.
    */

@@ -2,14 +2,15 @@ import type {
   AiProviderDetailItem,
   AiProviderListItem,
   AiProviderRuntimeConfig,
+  AiProviderRuntimeState,
   EnabledProvider,
 } from '@lobechat/types';
-import { AiProviderModelListItem, EnabledAiModel, ExtendParamsType } from 'model-bank';
+import type { AiProviderModelListItem, EnabledAiModel, ExtendParamsType } from 'model-bank';
 import { DEFAULT_MODEL_PROVIDER_LIST } from 'model-bank/modelProviders';
 import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { getTestDB } from '../../core/getTestDB';
-import { LobeChatDatabase } from '../../type';
+import type { LobeChatDatabase } from '../../type';
 import { AiInfraRepos } from './index';
 
 const userId = 'test-user-id';
@@ -873,6 +874,103 @@ describe('AiInfraRepos', () => {
       // 无 settings
       expect(merged?.settings).toBeUndefined();
     });
+
+    it('should treat sort=0 as a valid sort value (not fallback to undefined)', async () => {
+      const mockProviders = [
+        { enabled: true, id: 'openai', name: 'OpenAI', sort: 1, source: 'builtin' as const },
+      ];
+
+      const mockAllModels = [
+        {
+          abilities: {},
+          enabled: true,
+          id: 'gpt-4',
+          providerId: 'openai',
+          sort: 0,
+          type: 'chat' as const,
+        },
+      ] as EnabledAiModel[];
+
+      vi.spyOn(repo, 'getAiProviderList').mockResolvedValue(mockProviders);
+      vi.spyOn(repo.aiModelModel, 'getAllModels').mockResolvedValue(mockAllModels);
+      vi.spyOn(repo as any, 'fetchBuiltinModels').mockResolvedValue([
+        { enabled: true, id: 'gpt-4', type: 'chat' as const },
+      ]);
+
+      const result = await repo.getEnabledModels();
+      const model = result.find((m) => m.id === 'gpt-4');
+
+      expect(model?.sort).toBe(0);
+    });
+
+    it('should sort unsorted models after sorted ones', async () => {
+      const mockProviders = [
+        { enabled: true, id: 'openai', name: 'OpenAI', sort: 1, source: 'builtin' as const },
+      ];
+
+      const mockAllModels = [
+        { enabled: true, id: 'gpt-4', providerId: 'openai', sort: 2, type: 'chat' as const },
+        { enabled: true, id: 'gpt-3', providerId: 'openai', sort: 0, type: 'chat' as const },
+        // No sort value - should appear last
+        { enabled: true, id: 'gpt-new', providerId: 'openai', type: 'chat' as const },
+      ] as EnabledAiModel[];
+
+      vi.spyOn(repo, 'getAiProviderList').mockResolvedValue(mockProviders);
+      vi.spyOn(repo.aiModelModel, 'getAllModels').mockResolvedValue(mockAllModels);
+      vi.spyOn(repo as any, 'fetchBuiltinModels').mockResolvedValue([
+        { enabled: true, id: 'gpt-4', type: 'chat' as const },
+        { enabled: true, id: 'gpt-3', type: 'chat' as const },
+        { enabled: true, id: 'gpt-new', type: 'chat' as const },
+      ]);
+
+      const result = await repo.getEnabledModels();
+      const ids = result.map((m) => m.id);
+
+      // gpt-3 (sort=0) < gpt-4 (sort=2) < gpt-new (no sort, goes to end)
+      expect(ids).toEqual(['gpt-3', 'gpt-4', 'gpt-new']);
+    });
+
+    it('should deduplicate models that exist in both builtin and user DB', async () => {
+      const mockProviders = [
+        { enabled: true, id: 'openai', name: 'OpenAI', sort: 1, source: 'builtin' as const },
+      ];
+
+      // gpt-4 exists in both builtin list and user DB
+      const mockAllModels = [
+        {
+          enabled: true,
+          id: 'gpt-4',
+          providerId: 'openai',
+          displayName: 'User GPT-4',
+          sort: 1,
+          type: 'chat' as const,
+        },
+        {
+          enabled: true,
+          id: 'custom-model',
+          providerId: 'openai',
+          displayName: 'Custom Model',
+          type: 'chat' as const,
+        },
+      ] as EnabledAiModel[];
+
+      vi.spyOn(repo, 'getAiProviderList').mockResolvedValue(mockProviders);
+      vi.spyOn(repo.aiModelModel, 'getAllModels').mockResolvedValue(mockAllModels);
+      vi.spyOn(repo as any, 'fetchBuiltinModels').mockResolvedValue([
+        { enabled: true, id: 'gpt-4', displayName: 'GPT-4', type: 'chat' as const },
+      ]);
+
+      const result = await repo.getEnabledModels();
+
+      // gpt-4 should only appear once (from builtin merge path), not duplicated
+      const gpt4Models = result.filter((m) => m.id === 'gpt-4');
+      expect(gpt4Models).toHaveLength(1);
+      // The merged one should have user's displayName
+      expect(gpt4Models[0].displayName).toBe('User GPT-4');
+
+      // custom-model should still be included as appended user model
+      expect(result.find((m) => m.id === 'custom-model')).toBeDefined();
+    });
   });
 
   describe('getAiProviderModelList', () => {
@@ -1627,6 +1725,7 @@ describe('AiInfraRepos', () => {
           { id: 'openai', logo: 'logo1', name: 'OpenAI', source: 'builtin' },
         ],
         enabledImageAiProviders: [],
+        enabledVideoAiProviders: [],
         runtimeConfig: {
           openai: {
             apiKey: 'test-key',
@@ -1717,6 +1816,7 @@ describe('AiInfraRepos', () => {
             name: 'Fal',
           }),
         ],
+        enabledVideoAiProviders: [],
         runtimeConfig: {
           fal: {
             apiKey: 'test-fal-key',
@@ -1772,6 +1872,58 @@ describe('AiInfraRepos', () => {
         settings: {},
         source: 'builtin',
       });
+    });
+  });
+
+  describe('AiInfraRepos.tryMatchingProviderFrom', () => {
+    const createRuntimeState = (models: EnabledAiModel[]): AiProviderRuntimeState => ({
+      enabledAiModels: models,
+      enabledAiProviders: [],
+      enabledChatAiProviders: [],
+      enabledImageAiProviders: [],
+      enabledVideoAiProviders: [],
+      runtimeConfig: {},
+    });
+
+    it('prefers provider order when multiple providers have model', async () => {
+      const runtimeState = createRuntimeState([
+        { abilities: {}, enabled: true, id: 'm-1', type: 'chat', providerId: 'provider-b' },
+        { abilities: {}, enabled: true, id: 'm-1', type: 'chat', providerId: 'provider-a' },
+      ]);
+
+      const providerId = await AiInfraRepos.tryMatchingProviderFrom(runtimeState, {
+        modelId: 'm-1',
+        preferredProviders: ['provider-b', 'provider-a'],
+      });
+
+      expect(providerId).toBe('provider-b');
+    });
+
+    it('ignores disabled models when matching', async () => {
+      const runtimeState = createRuntimeState([
+        { abilities: {}, enabled: false, id: 'm-1', type: 'chat', providerId: 'provider-disabled' },
+        { abilities: {}, enabled: true, id: 'm-1', type: 'chat', providerId: 'provider-a' },
+      ]);
+
+      const providerId = await AiInfraRepos.tryMatchingProviderFrom(runtimeState, {
+        modelId: 'm-1',
+        preferredProviders: ['provider-disabled', 'provider-a'],
+      });
+
+      expect(providerId).toBe('provider-a');
+    });
+
+    it('falls back to provided fallback provider when no match', async () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const runtimeState = createRuntimeState([]);
+
+      const providerId = await AiInfraRepos.tryMatchingProviderFrom(runtimeState, {
+        modelId: 'm-1',
+        fallbackProvider: 'provider-fallback',
+      });
+
+      expect(providerId).toBe('provider-fallback');
+      warnSpy.mockRestore();
     });
   });
 });

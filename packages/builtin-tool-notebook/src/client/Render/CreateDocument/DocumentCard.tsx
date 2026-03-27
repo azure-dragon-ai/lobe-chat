@@ -1,6 +1,6 @@
 'use client';
 
-import { ActionIcon, CopyButton, Flexbox, Markdown, ScrollShadow } from '@lobehub/ui';
+import { ActionIcon, CopyButton, Flexbox, Markdown, ScrollShadow, TooltipGroup } from '@lobehub/ui';
 import { Button } from 'antd';
 import { createStaticStyles } from 'antd-style';
 import { Maximize2, Minimize2, NotebookText, PencilLine } from 'lucide-react';
@@ -10,7 +10,7 @@ import { useTranslation } from 'react-i18next';
 import { useChatStore } from '@/store/chat';
 import { chatPortalSelectors } from '@/store/chat/slices/portal/selectors';
 
-import { NotebookDocument } from '../../../types';
+import type { NotebookDocument } from '../../../types';
 
 const styles = createStaticStyles(({ css, cssVar }) => ({
   container: css`
@@ -80,24 +80,26 @@ const DocumentCard = memo<DocumentCardProps>(({ document }) => {
   return (
     <Flexbox className={styles.container}>
       {/* Header */}
-      <Flexbox align={'center'} className={styles.header} gap={8} horizontal>
+      <Flexbox horizontal align={'center'} className={styles.header} gap={8}>
         <NotebookText className={styles.icon} size={16} />
         <Flexbox flex={1}>
           <div className={styles.title}>{document.title}</div>
         </Flexbox>
-        <Flexbox gap={4} horizontal>
-          <CopyButton
-            content={document.content}
-            size={'small'}
-            title={t('builtins.lobe-notebook.actions.copy')}
-          />
-          <ActionIcon
-            icon={PencilLine}
-            onClick={handleToggle}
-            size={'small'}
-            title={t('builtins.lobe-notebook.actions.edit')}
-          />
-        </Flexbox>
+        <TooltipGroup>
+          <Flexbox horizontal gap={4}>
+            <CopyButton
+              content={document.content}
+              size={'small'}
+              title={t('builtins.lobe-notebook.actions.copy')}
+            />
+            <ActionIcon
+              icon={PencilLine}
+              size={'small'}
+              title={t('builtins.lobe-notebook.actions.edit')}
+              onClick={handleToggle}
+            />
+          </Flexbox>
+        </TooltipGroup>
       </Flexbox>
       {/* Content */}
       <ScrollShadow className={styles.content} offset={12} size={12} style={{ maxHeight: 400 }}>
@@ -111,9 +113,9 @@ const DocumentCard = memo<DocumentCardProps>(({ document }) => {
         className={styles.expandButton}
         color={'default'}
         icon={isExpanded ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
-        onClick={handleToggle}
         shape={'round'}
         variant={'outlined'}
+        onClick={handleToggle}
       >
         {isExpanded
           ? t('builtins.lobe-notebook.actions.collapse')

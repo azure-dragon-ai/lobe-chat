@@ -11,7 +11,7 @@
 import { Given, Then, When } from '@cucumber/cucumber';
 import { expect } from '@playwright/test';
 
-import { CustomWorld } from '../../support/world';
+import type { CustomWorld } from '../../support/world';
 
 // ============================================
 // Given Steps
@@ -124,27 +124,43 @@ When('用户点击新建对话按钮', async function (this: CustomWorld) {
 When('用户点击另一个对话', async function (this: CustomWorld) {
   console.log('   📍 Step: 点击另一个对话...');
 
-  // Find topic items in the sidebar
-  // Topics are displayed with star icons (lucide-star) in the left sidebar
-  // Each topic item has a star icon as part of it
-  const sidebarTopics = this.page.locator('svg.lucide-star').locator('..').locator('..');
-  let topicCount = await sidebarTopics.count();
-  console.log(`   📍 Found ${topicCount} topics with star icons`);
+  // Check if we're on the home page (has Recent Topics section)
+  const recentTopicsSection = this.page.locator('text=Recent Topics');
+  const isOnHomePage = (await recentTopicsSection.count()) > 0;
+  console.log(`   📍 Is on home page: ${isOnHomePage}`);
 
-  // If not found by star, try finding by topic list structure
-  if (topicCount < 2) {
-    // Topics might be in a list container - look for items in sidebar with specific text
-    const topicItems = this.page.locator('[class*="nav-item"], [class*="NavItem"]');
-    topicCount = await topicItems.count();
-    console.log(`   📍 Found ${topicCount} nav items`);
+  if (isOnHomePage) {
+    // Click the second topic card in Recent Topics section
+    // Cards are wrapped in Link components and contain "Hello! I am a mock AI" text from the mock
+    const recentTopicCards = this.page.locator('a[href*="topic="]');
+    const cardCount = await recentTopicCards.count();
+    console.log(`   📍 Found ${cardCount} recent topic cards (by href)`);
 
-    if (topicCount >= 2) {
-      await topicItems.nth(1).click();
-      console.log('   ✅ 已点击另一个对话');
-      await this.page.waitForTimeout(500);
+    if (cardCount >= 2) {
+      // Click the second card (different from current topic)
+      await recentTopicCards.nth(1).click();
+      console.log('   ✅ 已点击首页 Recent Topics 中的另一个对话');
+      await this.page.waitForTimeout(2000);
+      return;
+    }
+
+    // Fallback: try to find by text content
+    const topicTextCards = this.page.locator('text=Hello! I am a mock AI');
+    const textCardCount = await topicTextCards.count();
+    console.log(`   📍 Found ${textCardCount} topic cards by text`);
+
+    if (textCardCount >= 2) {
+      await topicTextCards.nth(1).click();
+      console.log('   ✅ 已点击首页 Recent Topics 中的另一个对话 (by text)');
+      await this.page.waitForTimeout(2000);
       return;
     }
   }
+
+  // Fallback: try to find topic items in the sidebar
+  const sidebarTopics = this.page.locator('[data-testid="topic-item"]');
+  const topicCount = await sidebarTopics.count();
+  console.log(`   📍 Found ${topicCount} topic items`);
 
   // Click the second topic (first one is current/active)
   if (topicCount >= 2) {
@@ -160,13 +176,11 @@ When('用户点击另一个对话', async function (this: CustomWorld) {
 When('用户右键点击对话', async function (this: CustomWorld) {
   console.log('   📍 Step: 右键点击对话...');
 
-  // Find topic items by their star icon - each saved topic has a star
-  const sidebarTopics = this.page.locator('svg.lucide-star').locator('..').locator('..');
-  let topicCount = await sidebarTopics.count();
-  console.log(`   📍 Found ${topicCount} topics with star icons`);
+  const sidebarTopics = this.page.locator('[data-testid="topic-item"]');
+  const topicCount = await sidebarTopics.count();
+  console.log(`   📍 Found ${topicCount} topic items`);
 
   if (topicCount > 0) {
-    // Right-click the first saved topic
     await sidebarTopics.first().click({ button: 'right' });
     console.log('   ✅ 已右键点击对话');
   } else {
@@ -179,10 +193,9 @@ When('用户右键点击对话', async function (this: CustomWorld) {
 When('用户右键点击一个对话', async function (this: CustomWorld) {
   console.log('   📍 Step: 右键点击一个对话...');
 
-  // Find topic items by their star icon
-  const sidebarTopics = this.page.locator('svg.lucide-star').locator('..').locator('..');
-  let topicCount = await sidebarTopics.count();
-  console.log(`   📍 Found ${topicCount} topics with star icons`);
+  const sidebarTopics = this.page.locator('[data-testid="topic-item"]');
+  const topicCount = await sidebarTopics.count();
+  console.log(`   📍 Found ${topicCount} topic items`);
 
   // Store the topic text for later verification
   if (topicCount > 0) {
@@ -206,7 +219,7 @@ When('用户选择重命名选项', async function (this: CustomWorld) {
 
   // Instead of using right-click context menu, use the "..." dropdown menu
   // which appears when hovering over a topic item
-  const topicItems = this.page.locator('svg.lucide-star').locator('..').locator('..');
+  const topicItems = this.page.locator('[data-testid="topic-item"]');
   const topicCount = await topicItems.count();
   console.log(`   📍 Found ${topicCount} topic items`);
 
@@ -221,7 +234,7 @@ When('用户选择重命名选项', async function (this: CustomWorld) {
     // Important: we must find the icon WITHIN the hovered topic, not the global one
     // The topic item has a specific structure with nav-item-actions
     const moreButtonInTopic = firstTopic.locator('svg.lucide-ellipsis, svg.lucide-more-horizontal');
-    let moreButtonCount = await moreButtonInTopic.count();
+    const moreButtonCount = await moreButtonInTopic.count();
     console.log(`   📍 Found ${moreButtonCount} more buttons inside topic`);
 
     if (moreButtonCount > 0) {
@@ -505,8 +518,20 @@ Then('应该切换到该对话', async function (this: CustomWorld) {
 Then('显示该对话的历史消息', async function (this: CustomWorld) {
   console.log('   📍 Step: 验证显示历史消息...');
 
+  // Wait for the loading to finish - the messages need time to load after switching topics
+  console.log('   📍 等待消息加载...');
+  await this.page.waitForTimeout(2000);
+
+  // Wait for the message wrapper to appear (ChatItem component uses message-wrapper class)
+  const messageSelector = '.message-wrapper';
+  try {
+    await this.page.waitForSelector(messageSelector, { timeout: 10_000 });
+  } catch {
+    console.log('   ⚠️ 等待消息选择器超时，尝试备用选择器...');
+  }
+
   // There should be messages in the chat area
-  const messages = this.page.locator('[class*="message"], [data-role]');
+  const messages = this.page.locator(messageSelector);
   const messageCount = await messages.count();
 
   console.log(`   📍 找到 ${messageCount} 条消息`);

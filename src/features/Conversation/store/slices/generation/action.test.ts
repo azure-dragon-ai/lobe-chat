@@ -1,14 +1,16 @@
+import { AgentManagementIdentifier } from '@lobechat/builtin-tool-agent-management';
 import { act } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { AI_RUNTIME_OPERATION_TYPES } from '@/store/chat/slices/operation/types';
+import { INPUT_LOADING_OPERATION_TYPES } from '@/store/chat/slices/operation/types';
 
-import type { ConversationContext, ConversationHooks } from '../../../types';
+import { type ConversationContext, type ConversationHooks } from '../../../types';
 import { createStore } from '../../index';
 
 // Mock useChatStore
 const mockCancelOperations = vi.fn();
 const mockCancelOperation = vi.fn();
+const mockCancelSendMessageInServer = vi.fn();
 const mockRegenerateUserMessage = vi.fn();
 const mockRegenerateAssistantMessage = vi.fn();
 const mockContinueGenerationMessage = vi.fn();
@@ -32,6 +34,7 @@ vi.mock('@/store/chat', () => ({
       messageLoadingIds: [],
       cancelOperations: mockCancelOperations,
       cancelOperation: mockCancelOperation,
+      cancelSendMessageInServer: mockCancelSendMessageInServer,
       regenerateUserMessage: mockRegenerateUserMessage,
       regenerateAssistantMessage: mockRegenerateAssistantMessage,
       continueGenerationMessage: mockContinueGenerationMessage,
@@ -71,7 +74,7 @@ describe('Generation Actions', () => {
 
       expect(mockCancelOperations).toHaveBeenCalledWith(
         {
-          type: AI_RUNTIME_OPERATION_TYPES,
+          type: INPUT_LOADING_OPERATION_TYPES,
           status: 'running',
           agentId: 'session-1',
           topicId: 'topic-1',
@@ -462,6 +465,122 @@ describe('Generation Actions', () => {
       // Should complete operation
       expect(mockCompleteOperation).toHaveBeenCalledWith('test-op-id');
     });
+
+    it('should delete message BEFORE regeneration to prevent message not found issue (LOBE-2533)', async () => {
+      // This test verifies the fix:
+      // When "delete and regenerate" is called, if regeneration happens first,
+      // it switches to a new branch, causing the original message to no longer
+      // appear in displayMessages. Then deleteMessage cannot find the message
+      // and fails silently.
+      //
+      // The fix: delete first, then regenerate.
+
+      const callOrder: string[] = [];
+
+      // Re-setup mock to track call order
+      const { useChatStore } = await import('@/store/chat');
+      vi.mocked(useChatStore.getState).mockReturnValue({
+        messagesMap: {},
+        operations: {},
+        messageLoadingIds: [],
+        cancelOperations: mockCancelOperations,
+        cancelOperation: mockCancelOperation,
+        deleteMessage: vi.fn().mockImplementation(() => {
+          callOrder.push('deleteMessage');
+          return Promise.resolve();
+        }),
+        switchMessageBranch: vi.fn().mockImplementation(() => {
+          callOrder.push('switchMessageBranch');
+          return Promise.resolve();
+        }),
+        startOperation: mockStartOperation,
+        completeOperation: mockCompleteOperation,
+        failOperation: mockFailOperation,
+        internal_execAgentRuntime: vi.fn().mockImplementation(() => {
+          callOrder.push('internal_execAgentRuntime');
+          return Promise.resolve();
+        }),
+      } as any);
+
+      const context: ConversationContext = {
+        agentId: 'session-1',
+        topicId: 'topic-1',
+        threadId: null,
+        groupId: 'group-1',
+      };
+
+      const store = createStore({ context });
+
+      // Set displayMessages and dbMessages
+      act(() => {
+        store.setState({
+          displayMessages: [
+            { id: 'msg-1', role: 'user', content: 'Hello' },
+            { id: 'msg-2', role: 'assistant', content: 'Hi there', parentId: 'msg-1' },
+          ],
+          dbMessages: [
+            { id: 'msg-1', role: 'user', content: 'Hello' },
+            { id: 'msg-2', role: 'assistant', content: 'Hi there', parentId: 'msg-1' },
+          ],
+        } as any);
+      });
+
+      await act(async () => {
+        await store.getState().delAndRegenerateMessage('msg-2');
+      });
+
+      // CRITICAL: deleteMessage must be called BEFORE switchMessageBranch and internal_execAgentRuntime
+      // If regeneration (which calls switchMessageBranch) happens first, the message
+      // won't be found in displayMessages and deletion will fail silently.
+      expect(callOrder[0]).toBe('deleteMessage');
+      expect(callOrder).toContain('switchMessageBranch');
+      expect(callOrder).toContain('internal_execAgentRuntime');
+
+      // Verify deleteMessage is called before any regeneration-related calls
+      const deleteIndex = callOrder.indexOf('deleteMessage');
+      const switchIndex = callOrder.indexOf('switchMessageBranch');
+      const execIndex = callOrder.indexOf('internal_execAgentRuntime');
+
+      expect(deleteIndex).toBeLessThan(switchIndex);
+      expect(deleteIndex).toBeLessThan(execIndex);
+    });
+
+    it('should not proceed if assistant message has no parentId', async () => {
+      const { useChatStore } = await import('@/store/chat');
+      vi.mocked(useChatStore.getState).mockReturnValue({
+        messagesMap: {},
+        operations: {},
+        messageLoadingIds: [],
+        startOperation: mockStartOperation,
+        completeOperation: mockCompleteOperation,
+        deleteMessage: mockDeleteMessage,
+      } as any);
+
+      const context: ConversationContext = {
+        agentId: 'session-1',
+        topicId: null,
+        threadId: null,
+      };
+
+      const store = createStore({ context });
+
+      // Set displayMessages with assistant message that has no parentId
+      act(() => {
+        store.setState({
+          displayMessages: [
+            { id: 'msg-1', role: 'assistant', content: 'Hi there' }, // no parentId
+          ],
+        } as any);
+      });
+
+      await act(async () => {
+        await store.getState().delAndRegenerateMessage('msg-1');
+      });
+
+      // Should not proceed - no operation created, no delete called
+      expect(mockStartOperation).not.toHaveBeenCalled();
+      expect(mockDeleteMessage).not.toHaveBeenCalled();
+    });
   });
 
   describe('delAndResendThreadMessage', () => {
@@ -616,6 +735,77 @@ describe('Generation Actions', () => {
           parentMessageId: 'msg-1',
           parentMessageType: 'user',
           parentOperationId: 'test-op-id',
+        }),
+      );
+    });
+
+    it('should restore mention-based initialContext when regenerating a user message', async () => {
+      const { useChatStore } = await import('@/store/chat');
+      vi.mocked(useChatStore.getState).mockReturnValue({
+        messagesMap: {},
+        operations: {},
+        messageLoadingIds: [],
+        cancelOperations: mockCancelOperations,
+        cancelOperation: mockCancelOperation,
+        deleteMessage: mockDeleteMessage,
+        switchMessageBranch: mockSwitchMessageBranch,
+        startOperation: mockStartOperation,
+        completeOperation: mockCompleteOperation,
+        failOperation: mockFailOperation,
+        internal_execAgentRuntime: mockInternalExecAgentRuntime,
+      } as any);
+
+      const context: ConversationContext = {
+        agentId: 'session-1',
+        topicId: 'topic-1',
+        threadId: null,
+      };
+
+      const store = createStore({ context });
+
+      act(() => {
+        store.setState({
+          displayMessages: [
+            {
+              id: 'msg-1',
+              role: 'user',
+              content: '<mention name="Agent A" id="agent-a" /> hello',
+              editorData: {
+                root: {
+                  type: 'root',
+                  children: [
+                    {
+                      type: 'paragraph',
+                      children: [
+                        {
+                          type: 'mention',
+                          label: 'Agent A',
+                          metadata: { id: 'agent-a', type: 'agent' },
+                        },
+                        { type: 'text', text: ' hello' },
+                      ],
+                    },
+                  ],
+                },
+              },
+            },
+          ],
+        } as any);
+      });
+
+      await act(async () => {
+        await store.getState().regenerateUserMessage('msg-1');
+      });
+
+      expect(mockInternalExecAgentRuntime).toHaveBeenCalledWith(
+        expect.objectContaining({
+          initialContext: {
+            initialContext: {
+              mentionedAgents: [{ id: 'agent-a', name: 'Agent A' }],
+              selectedTools: [{ identifier: AgentManagementIdentifier, name: 'Agent Management' }],
+            },
+            phase: 'init',
+          },
         }),
       );
     });

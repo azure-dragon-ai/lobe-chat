@@ -1,5 +1,5 @@
 import { filesPrompts } from '@lobechat/prompts';
-import { MessageContentPart } from '@lobechat/types';
+import type { MessageContentPart } from '@lobechat/types';
 import { imageUrlToBase64 } from '@lobechat/utils/imageToBase64';
 import { parseDataUri } from '@lobechat/utils/uriParser';
 import { isDesktopLocalStaticServerUrl } from '@lobechat/utils/url';
@@ -7,6 +7,14 @@ import debug from 'debug';
 
 import { BaseProcessor } from '../base/BaseProcessor';
 import type { PipelineContext, ProcessorOptions } from '../types';
+
+declare module '../types' {
+  interface PipelineContextMetadataOverrides {
+    assistantMessagesProcessed?: number;
+    messageContentProcessed?: number;
+    userMessagesProcessed?: number;
+  }
+}
 
 const log = debug('context-engine:processor:MessageContentProcessor');
 

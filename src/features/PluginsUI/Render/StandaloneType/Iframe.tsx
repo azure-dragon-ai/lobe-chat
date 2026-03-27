@@ -143,19 +143,19 @@ const IFrameRender = memo<IFrameRenderProps>(({ url, id, payload, width = 600, h
         allowtransparency="true"
         height={height}
         hidden={loading}
-        onLoad={() => {
-          setLoading(false);
-        }}
         ref={iframeRef}
         src={url}
+        width={width}
         style={{
           border: 0,
-          // iframe 在 color-scheme:dark 模式下无法透明
+          // iframe cannot be transparent in color-scheme:dark mode
           // refs: https://www.jianshu.com/p/bc5a37bb6a7b
           colorScheme: 'light',
           maxWidth: '100%',
         }}
-        width={width}
+        onLoad={() => {
+          setLoading(false);
+        }}
       />
     </>
   );

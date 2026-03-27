@@ -1,8 +1,11 @@
-import { ElectronAppState, ThemeMode } from '@lobechat/electron-client-ipc';
-import { app, dialog, nativeTheme, shell } from 'electron';
-import { macOS } from 'electron-is';
 import process from 'node:process';
 
+import type { ElectronAppState, ThemeMode } from '@lobechat/electron-client-ipc';
+import { app, dialog, nativeTheme, shell } from 'electron';
+import { macOS } from 'electron-is';
+import { pathExists, readdir } from 'fs-extra';
+
+import { legacyLocalDbDir } from '@/const/dir';
 import { createLogger } from '@/utils/logger';
 import {
   getAccessibilityStatus,
@@ -120,8 +123,8 @@ export default class SystemController extends ControllerModule {
       buttons: [openSettingsButtonText, skipButtonText],
       cancelId: 1,
       defaultId: 0,
-      message: message,
-      title: title,
+      message,
+      title,
       type: 'info',
     });
 
@@ -201,17 +204,30 @@ export default class SystemController extends ControllerModule {
   async updateThemeModeHandler(themeMode: ThemeMode) {
     this.app.storeManager.set('themeMode', themeMode);
     this.app.browserManager.broadcastToAllWindows('themeChanged', { themeMode });
-
-    // Apply visual effects to all browser windows when theme mode changes
-    this.app.browserManager.handleAppThemeChange();
-    // Set app theme mode to the system theme mode
-
     this.setSystemThemeMode(themeMode);
+    this.app.browserManager.handleAppThemeChange();
   }
 
   @IpcMethod()
   async getSystemThemeMode() {
     return nativeTheme.themeSource;
+  }
+
+  /**
+   * Detect whether user used the legacy local database in older desktop versions.
+   * Legacy path: {app.getPath('userData')}/lobehub-storage/lobehub-local-db
+   */
+  @IpcMethod()
+  async hasLegacyLocalDb(): Promise<boolean> {
+    if (!(await pathExists(legacyLocalDbDir))) return false;
+
+    try {
+      const entries = await readdir(legacyLocalDbDir);
+      return entries.length > 0;
+    } catch {
+      // If directory exists but cannot be read, treat as "used" to surface guidance.
+      return true;
+    }
   }
 
   private async setSystemThemeMode(themeMode: ThemeMode) {

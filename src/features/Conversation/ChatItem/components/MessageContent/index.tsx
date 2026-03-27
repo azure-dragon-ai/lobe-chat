@@ -1,9 +1,10 @@
 import { Flexbox } from '@lobehub/ui';
 import { createStaticStyles, cx } from 'antd-style';
-import dynamic from 'next/dynamic';
-import { type ReactNode, Suspense, memo, useCallback } from 'react';
+import { type ReactNode } from 'react';
+import { memo, Suspense, useCallback } from 'react';
 
-import { useConversationStore } from '@/features/Conversation/store';
+import { dataSelectors, useConversationStore } from '@/features/Conversation/store';
+import dynamic from '@/libs/next/dynamic';
 
 import { type ChatItemProps } from '../../type';
 
@@ -63,6 +64,10 @@ const MessageContent = memo<MessageContentProps>(
       s.updateMessageContent,
     ]);
 
+    const editorData = useConversationStore(
+      (s) => dataSelectors.getDisplayMessageById(id)(s)?.editorData,
+    );
+
     const onEditingChange = useCallback(
       (edit: boolean) => toggleMessageEditing(id, edit),
       [id, toggleMessageEditing],
@@ -71,6 +76,7 @@ const MessageContent = memo<MessageContentProps>(
     return (
       <>
         <Flexbox
+          gap={16}
           className={cx(
             MSG_CONTENT_CLASSNAME,
             styles.message,
@@ -78,7 +84,6 @@ const MessageContent = memo<MessageContentProps>(
             disabled && styles.disabled,
             className,
           )}
-          gap={16}
           onDoubleClick={onDoubleClick}
         >
           {children || message}
@@ -87,13 +92,16 @@ const MessageContent = memo<MessageContentProps>(
         <Suspense fallback={null}>
           {editing && (
             <EditorModal
-              onCancel={() => onEditingChange(false)}
-              onConfirm={async (value) => {
-                await updateMessageContent(id, value);
-                onEditingChange(false);
-              }}
+              editorData={editorData}
               open={editing}
               value={message ? String(message) : ''}
+              onCancel={() => onEditingChange(false)}
+              onConfirm={async (value, newEditorData) => {
+                await updateMessageContent(id, value, {
+                  editorData: newEditorData as Record<string, any> | undefined,
+                });
+                onEditingChange(false);
+              }}
             />
           )}
         </Suspense>

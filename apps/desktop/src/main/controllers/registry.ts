@@ -3,6 +3,7 @@ import type { CreateServicesResult, IpcServiceConstructor, MergeIpcService } fro
 import AuthCtr from './AuthCtr';
 import BrowserWindowsCtr from './BrowserWindowsCtr';
 import DevtoolsCtr from './DevtoolsCtr';
+import GatewayConnectionCtr from './GatewayConnectionCtr';
 import LocalFileCtr from './LocalFileCtr';
 import McpCtr from './McpCtr';
 import McpInstallCtr from './McpInstallCtr';
@@ -14,6 +15,7 @@ import RemoteServerSyncCtr from './RemoteServerSyncCtr';
 import ShellCommandCtr from './ShellCommandCtr';
 import ShortcutController from './ShortcutCtr';
 import SystemController from './SystemCtr';
+import ToolDetectorCtr from './ToolDetectorCtr';
 import TrayMenuCtr from './TrayMenuCtr';
 import UpdaterCtr from './UpdaterCtr';
 import UploadFileCtr from './UploadFileCtr';
@@ -22,6 +24,7 @@ export const controllerIpcConstructors = [
   AuthCtr,
   BrowserWindowsCtr,
   DevtoolsCtr,
+  GatewayConnectionCtr,
   LocalFileCtr,
   McpCtr,
   McpInstallCtr,
@@ -33,6 +36,7 @@ export const controllerIpcConstructors = [
   ShellCommandCtr,
   ShortcutController,
   SystemController,
+  ToolDetectorCtr,
   TrayMenuCtr,
   UpdaterCtr,
   UploadFileCtr,

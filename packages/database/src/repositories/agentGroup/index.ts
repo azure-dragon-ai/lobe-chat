@@ -1,23 +1,23 @@
 import { BUILTIN_AGENT_SLUGS } from '@lobechat/builtin-agents';
-import { AgentGroupDetail, AgentGroupMember } from '@lobechat/types';
+import type { AgentGroupDetail, AgentGroupMember } from '@lobechat/types';
 import { cleanObject } from '@lobechat/utils';
 import { and, eq, inArray } from 'drizzle-orm';
 
-import {
-  AgentItem,
-  ChatGroupItem,
-  NewChatGroup,
-  NewChatGroupAgent,
-  agents,
-  chatGroups,
-  chatGroupsAgents,
-} from '../../schemas';
-import { LobeChatDatabase } from '../../type';
-import { ChatGroupConfig } from '../../types/chatGroup';
+import type { AgentItem, ChatGroupItem, NewChatGroup, NewChatGroupAgent } from '../../schemas';
+import { agents, chatGroups, chatGroupsAgents } from '../../schemas';
+import type { LobeChatDatabase } from '../../type';
 
 export interface SupervisorAgentConfig {
+  avatar?: string;
+  backgroundColor?: string;
+  chatConfig?: any;
+  description?: string;
   model?: string;
+  params?: any;
+  plugins?: string[];
   provider?: string;
+  systemRole?: string;
+  tags?: string[];
   title?: string;
 }
 
@@ -106,14 +106,12 @@ export class AgentGroupRepository {
 
     // 4. If no supervisor exists, create a virtual supervisor agent
     if (!supervisorAgentId) {
-      const groupConfig = group.config as ChatGroupConfig | undefined;
-
       // Create supervisor agent (virtual agent)
       const [supervisorAgent] = await this.db
         .insert(agents)
         .values({
-          model: groupConfig?.orchestratorModel,
-          provider: groupConfig?.orchestratorProvider,
+          model: undefined,
+          provider: undefined,
           title: 'Supervisor',
           userId: this.userId,
           virtual: true,
@@ -163,14 +161,20 @@ export class AgentGroupRepository {
     agentMembers: string[] = [],
     supervisorConfig?: SupervisorAgentConfig,
   ): Promise<CreateGroupWithSupervisorResult> {
-    const groupConfig = groupParams.config as ChatGroupConfig | undefined;
-
     // 1. Create supervisor agent (virtual agent)
     const [supervisorAgent] = await this.db
       .insert(agents)
       .values({
-        model: supervisorConfig?.model ?? groupConfig?.orchestratorModel,
-        provider: supervisorConfig?.provider ?? groupConfig?.orchestratorProvider,
+        avatar: supervisorConfig?.avatar,
+        backgroundColor: supervisorConfig?.backgroundColor,
+        chatConfig: supervisorConfig?.chatConfig,
+        description: supervisorConfig?.description,
+        model: supervisorConfig?.model,
+        params: supervisorConfig?.params,
+        plugins: supervisorConfig?.plugins,
+        provider: supervisorConfig?.provider,
+        systemRole: supervisorConfig?.systemRole,
+        tags: supervisorConfig?.tags,
         title: supervisorConfig?.title ?? 'Supervisor',
         userId: this.userId,
         virtual: true,
@@ -361,7 +365,12 @@ export class AgentGroupRepository {
       const [newGroup] = await trx
         .insert(chatGroups)
         .values({
+          avatar: sourceGroup.avatar,
+          backgroundColor: sourceGroup.backgroundColor,
           config: sourceGroup.config,
+          content: sourceGroup.content,
+          description: sourceGroup.description,
+          editorData: sourceGroup.editorData,
           pinned: sourceGroup.pinned,
           title: newTitle || (sourceGroup.title ? `${sourceGroup.title} (Copy)` : 'Copy'),
           userId: this.userId,
@@ -373,8 +382,14 @@ export class AgentGroupRepository {
       const [newSupervisor] = await trx
         .insert(agents)
         .values({
+          avatar: supervisorAgent?.avatar,
+          backgroundColor: supervisorAgent?.backgroundColor,
+          description: supervisorAgent?.description,
           model: supervisorAgent?.model,
+          params: supervisorAgent?.params,
           provider: supervisorAgent?.provider,
+          systemRole: supervisorAgent?.systemRole,
+          tags: supervisorAgent?.tags,
           title: supervisorAgent?.title || 'Supervisor',
           userId: this.userId,
           virtual: true,

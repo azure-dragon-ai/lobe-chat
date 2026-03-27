@@ -1,12 +1,19 @@
 'use client';
 
-import type { SlashOptions } from '@lobehub/editor';
-import { Alert, Flexbox, type MenuProps } from '@lobehub/ui';
-import { type ReactNode, memo, useCallback } from 'react';
+import { type SlashOptions } from '@lobehub/editor';
+import { type ChatInputActionsProps } from '@lobehub/editor/react';
+import { type MenuProps } from '@lobehub/ui';
+import { Alert, Flexbox } from '@lobehub/ui';
+import { type ReactNode } from 'react';
+import { memo, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { type ActionKeys, ChatInputProvider, DesktopChatInput } from '@/features/ChatInput';
-import type { SendButtonHandler, SendButtonProps } from '@/features/ChatInput/store/initialState';
+import { type ActionKeys } from '@/features/ChatInput';
+import { ChatInputProvider, DesktopChatInput } from '@/features/ChatInput';
+import {
+  type SendButtonHandler,
+  type SendButtonProps,
+} from '@/features/ChatInput/store/initialState';
 import { useChatStore } from '@/store/chat';
 import { fileChatSelectors, useFileStore } from '@/store/file';
 
@@ -15,14 +22,30 @@ import { messageStateSelectors, useConversationStore } from '../store';
 
 export interface ChatInputProps {
   /**
+   * Custom style for the action bar container
+   */
+  actionBarStyle?: React.CSSProperties;
+  /**
+   * Whether to allow fullscreen expand button
+   */
+  allowExpand?: boolean;
+  /**
    * Custom children to render instead of default Desktop component.
    * Use this to add custom UI like error alerts, MessageFromUrl, etc.
    */
   children?: ReactNode;
   /**
+   * Extra action items to append to the ActionBar
+   */
+  extraActionItems?: ChatInputActionsProps['items'];
+  /**
    * Left action buttons configuration
    */
   leftActions?: ActionKeys[];
+  /**
+   * Custom left content to replace the default ActionBar entirely
+   */
+  leftContent?: ReactNode;
   /**
    * Mention items for @ mentions (for group chat)
    */
@@ -36,6 +59,10 @@ export interface ChatInputProps {
    */
   rightActions?: ActionKeys[];
   /**
+   * Custom content to render before the SendArea (right side of action bar)
+   */
+  sendAreaPrefix?: ReactNode;
+  /**
    * Custom send button props override
    */
   sendButtonProps?: Partial<SendButtonProps>;
@@ -43,6 +70,14 @@ export interface ChatInputProps {
    * Send menu configuration (for send options like Enter/Cmd+Enter, Add AI/User message)
    */
   sendMenu?: MenuProps;
+  /**
+   * Whether to show the runtime config bar (Local/Cloud/Auto Approve)
+   */
+  showRuntimeConfig?: boolean;
+  /**
+   * Remove a small margin when placed adjacent to the ChatList
+   */
+  skipScrollMarginWithList?: boolean;
 }
 
 /**
@@ -53,13 +88,20 @@ export interface ChatInputProps {
  */
 const ChatInput = memo<ChatInputProps>(
   ({
+    actionBarStyle,
+    allowExpand,
     leftActions = [],
+    leftContent,
     rightActions = [],
     children,
+    extraActionItems,
     mentionItems,
     sendMenu,
+    sendAreaPrefix,
     sendButtonProps: customSendButtonProps,
     onEditorReady,
+    showRuntimeConfig,
+    skipScrollMarginWithList,
   }) => {
     const { t } = useTranslation('chat');
 
@@ -73,8 +115,8 @@ const ChatInput = memo<ChatInputProps>(
     const updateInputMessage = useConversationStore((s) => s.updateInputMessage);
     const setEditor = useConversationStore((s) => s.setEditor);
 
-    // Generation state from ConversationStore (bridged from ChatStore)
-    const isAIGenerating = useConversationStore(messageStateSelectors.isAIGenerating);
+    // Loading state from ConversationStore (bridged from ChatStore)
+    const isInputLoading = useConversationStore(messageStateSelectors.isInputLoading);
 
     // Send message error from ConversationStore
     const sendMessageErrorMsg = useConversationStore(messageStateSelectors.sendMessageError);
@@ -87,74 +129,94 @@ const ChatInput = memo<ChatInputProps>(
 
     // Computed state
     const isInputEmpty = !inputMessage.trim() && fileList.length === 0 && contextList.length === 0;
-    const disabled = isInputEmpty || isUploadingFiles || isAIGenerating;
+    const disabled = isInputEmpty || isUploadingFiles || isInputLoading;
 
     // Send handler - gets message, clears editor immediately, then sends
     const handleSend: SendButtonHandler = useCallback(
-      async ({ clearContent, getMarkdownContent }) => {
+      async ({ clearContent, getMarkdownContent, getEditorData }) => {
         // Get instant values from stores at trigger time
         const fileStore = useFileStore.getState();
         const currentFileList = fileChatSelectors.chatUploadFileList(fileStore);
         const currentIsUploading = fileChatSelectors.isUploadingFiles(fileStore);
         const currentContextList = fileChatSelectors.chatContextSelections(fileStore);
 
-        if (currentIsUploading || isAIGenerating) return;
+        if (currentIsUploading || isInputLoading) return;
 
         // Get content before clearing
         const message = getMarkdownContent();
         if (!message.trim() && currentFileList.length === 0 && currentContextList.length === 0)
           return;
 
+        // Capture editor JSON state before clearing for rich text rendering
+        const editorData = getEditorData();
+
         // Clear content immediately for responsive UX
         clearContent();
         fileStore.clearChatUploadFileList();
         fileStore.clearChatContextSelections();
 
+        // Convert ChatContextContent to PageSelection for persistence
+        const pageSelections = currentContextList.map((ctx) => ({
+          content: ctx.preview || '',
+          id: ctx.id,
+          pageId: ctx.pageId || '',
+          xml: ctx.content,
+        }));
+
         // Fire and forget - send with captured message
-        await sendMessage({ contexts: currentContextList, files: currentFileList, message });
+        await sendMessage({ editorData, files: currentFileList, message, pageSelections });
       },
-      [isAIGenerating, sendMessage],
+      [isInputLoading, sendMessage],
     );
 
     const sendButtonProps: SendButtonProps = {
       disabled,
-      generating: isAIGenerating,
+      generating: isInputLoading,
       onStop: stopGenerating,
       ...customSendButtonProps,
     };
 
     const defaultContent = (
-      <WideScreenContainer>
+      <WideScreenContainer style={skipScrollMarginWithList ? { marginTop: -12 } : undefined}>
         {sendMessageErrorMsg && (
           <Flexbox paddingBlock={'0 6px'} paddingInline={12}>
             <Alert
               closable
-              onClose={clearSendMessageError}
               title={t('input.errorMsg', { errorMsg: sendMessageErrorMsg })}
               type={'secondary'}
+              onClose={clearSendMessageError}
             />
           </Flexbox>
         )}
-        <DesktopChatInput />
+        <DesktopChatInput
+          actionBarStyle={actionBarStyle}
+          borderRadius={12}
+          extraActionItems={extraActionItems}
+          leftContent={leftContent}
+          sendAreaPrefix={sendAreaPrefix}
+          showRuntimeConfig={showRuntimeConfig}
+        />
       </WideScreenContainer>
     );
 
     return (
       <ChatInputProvider
         agentId={agentId}
+        allowExpand={allowExpand}
+        leftActions={leftActions}
+        mentionItems={mentionItems}
+        rightActions={rightActions}
+        sendButtonProps={sendButtonProps}
+        sendMenu={sendMenu}
+        slashPlacement="top"
         chatInputEditorRef={(instance) => {
           if (instance) {
             setEditor(instance);
             onEditorReady?.(instance);
           }
         }}
-        leftActions={leftActions}
-        mentionItems={mentionItems}
         onMarkdownContentChange={updateInputMessage}
         onSend={handleSend}
-        rightActions={rightActions}
-        sendButtonProps={sendButtonProps}
-        sendMenu={sendMenu}
       >
         {children ?? defaultContent}
       </ChatInputProvider>
